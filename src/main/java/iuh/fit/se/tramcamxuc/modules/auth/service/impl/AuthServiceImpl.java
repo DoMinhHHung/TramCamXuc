@@ -3,6 +3,7 @@ package iuh.fit.se.tramcamxuc.modules.auth.service.impl;
 import iuh.fit.se.tramcamxuc.common.service.EmailService;
 import iuh.fit.se.tramcamxuc.common.service.JwtService;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.request.RegisterRequest;
+import iuh.fit.se.tramcamxuc.modules.auth.dto.request.ResetPasswordRequest;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.response.AuthResponse;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.request.LoginRequest;
 import iuh.fit.se.tramcamxuc.modules.auth.entity.RefreshToken;
@@ -125,6 +126,7 @@ public class AuthServiceImpl implements AuthService {
         saveUserRefreshToken(user, refreshToken);
 
         return AuthResponse.builder()
+                .message("Login successful")
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build();
@@ -159,8 +161,39 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    @Override
+    public void forgotPassword(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email chưa được đăng ký trong hệ thống"));
+
+        sendForgotPasswordOtp(user);
+    }
+
+    @Override
+    public void resetPassword(ResetPasswordRequest request) {
+        String key = "FORGOT_PASS_OTP:" + request.getEmail();
+        String storedOtp = redisTemplate.opsForValue().get(key);
+
+        if (storedOtp == null || !storedOtp.equals(request.getOtp())) {
+            throw new RuntimeException("OTP không hợp lệ hoặc đã hết hạn");
+        }
+
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        redisTemplate.delete(key);
+    }
+
+    @Override
+    public void resendForgotPasswordOtp(String email) {
+        forgotPassword(email);
+    }
+
     private void sendVerificationOtp(User user) {
-        String otp = String.valueOf(new Random().nextInt(900000) + 100000); // 6 digits
+        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
 
         redisTemplate.opsForValue().set(
                 "OTP:" + user.getEmail(),
@@ -172,6 +205,23 @@ public class AuthServiceImpl implements AuthService {
                 user.getEmail(),
                 "Xác thực tài khoản Phazel Sound",
                 "email/register-otp",
+                Map.of("name", user.getFullName(), "otp", otp)
+        );
+    }
+
+    private void sendForgotPasswordOtp(User user) {
+        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
+
+        redisTemplate.opsForValue().set(
+                "FORGOT_PASS_OTP:" + user.getEmail(),
+                otp,
+                Duration.ofMinutes(5)
+        );
+
+        emailService.sendHtmlEmail(
+                user.getEmail(),
+                "Đặt lại mật khẩu Phazel Sound",
+                "email/forgot-password",
                 Map.of("name", user.getFullName(), "otp", otp)
         );
     }
