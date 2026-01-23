@@ -23,7 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Random;
 
@@ -52,11 +54,15 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Username already in use");
         }
 
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        LocalDate dateOfBirth = LocalDate.parse(request.getDob(), formatter);
+
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
+                .dob(dateOfBirth)
                 .role(Role.USER)
                 .provider(AuthProvider.LOCAL)
                 .isActive(UserStatus.UNVERIFIED)
@@ -126,7 +132,31 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse refreshToken(String refreshToken) {
-        return null;
+        RefreshToken storedToken = refreshTokenRepository.findByToken(refreshToken)
+                .orElseThrow(() -> new RuntimeException("Refresh token not found"));
+
+        if (storedToken.isRevoked()) {
+            throw new RuntimeException("Refresh token has been revoked. Security alert!");
+        }
+
+        if (storedToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Refresh token expired. Please login again.");
+        }
+
+        User user = storedToken.getUser();
+
+        storedToken.setRevoked(true);
+        refreshTokenRepository.save(storedToken);
+
+        var newAccessToken = jwtService.generateAccessToken(customUserDetailsService.loadUserByUsername(user.getEmail()));
+        var newRefreshToken = jwtService.generateRefreshToken(customUserDetailsService.loadUserByUsername(user.getEmail()));
+
+        saveUserRefreshToken(user, newRefreshToken);
+
+        return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .build();
     }
 
     private void sendVerificationOtp(User user) {
