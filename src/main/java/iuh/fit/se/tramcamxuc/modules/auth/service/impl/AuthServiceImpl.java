@@ -1,8 +1,12 @@
 package iuh.fit.se.tramcamxuc.modules.auth.service.impl;
 
 import iuh.fit.se.tramcamxuc.common.service.EmailService;
+import iuh.fit.se.tramcamxuc.common.service.JwtService;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.request.RegisterRequest;
-import iuh.fit.se.tramcamxuc.modules.auth.dto.request.VerifyAccountRequest;
+import iuh.fit.se.tramcamxuc.modules.auth.dto.response.AuthResponse;
+import iuh.fit.se.tramcamxuc.modules.auth.dto.request.LoginRequest;
+import iuh.fit.se.tramcamxuc.modules.auth.entity.RefreshToken;
+import iuh.fit.se.tramcamxuc.modules.auth.repository.RefreshTokenRepository;
 import iuh.fit.se.tramcamxuc.modules.auth.service.AuthService;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
 import iuh.fit.se.tramcamxuc.modules.user.entity.enums.AuthProvider;
@@ -12,11 +16,14 @@ import iuh.fit.se.tramcamxuc.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Random;
 
@@ -28,6 +35,10 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final StringRedisTemplate redisTemplate;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final CustomUserDetailsServiceImpl customUserDetailsService;
 
     @Value("${application.security.otp.expiration-minutes}")
     private long otpExpirationMinutes;
@@ -89,6 +100,35 @@ public class AuthServiceImpl implements AuthService {
         sendVerificationOtp(user);
     }
 
+    @Override
+    public AuthResponse login(LoginRequest request) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
+
+        var userDetails = customUserDetailsService.loadUserByUsername(request.getEmail());
+        var user = userRepository.findByEmail(request.getEmail()).orElseThrow();
+
+        if (user.getIsActive() != UserStatus.ACTIVE) {
+            throw new RuntimeException("Account not activated. Please verify email.");
+        }
+
+        var accessToken = jwtService.generateAccessToken(userDetails);
+        var refreshToken = jwtService.generateRefreshToken(userDetails);
+
+        saveUserRefreshToken(user, refreshToken);
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
+    @Override
+    public AuthResponse refreshToken(String refreshToken) {
+        return null;
+    }
+
     private void sendVerificationOtp(User user) {
         String otp = String.valueOf(new Random().nextInt(900000) + 100000); // 6 digits
 
@@ -104,5 +144,15 @@ public class AuthServiceImpl implements AuthService {
                 "email/register-otp",
                 Map.of("name", user.getFullName(), "otp", otp)
         );
+    }
+
+    private void saveUserRefreshToken(User user, String jwtToken) {
+        var token = RefreshToken.builder()
+                .user(user)
+                .token(jwtToken)
+                .revoked(false)
+                .expiryDate(LocalDateTime.now().plusDays(7))
+                .build();
+        refreshTokenRepository.save(token);
     }
 }

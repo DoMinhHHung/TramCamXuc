@@ -2,6 +2,7 @@ package iuh.fit.se.tramcamxuc.modules.auth.controller;
 
 import iuh.fit.se.tramcamxuc.common.annotation.RateLimit;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.request.*;
+import iuh.fit.se.tramcamxuc.modules.auth.dto.response.AuthResponse;
 import iuh.fit.se.tramcamxuc.modules.auth.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,5 +33,19 @@ public class AuthController {
     public ResponseEntity<String> resendOtp(@RequestParam String email) {
         authService.resendOtp(email);
         return ResponseEntity.ok("OTP resent successfully");
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@RequestHeader("x-refresh-token") String refreshToken) {
+        // Lấy token từ Header cho chuyên nghiệp, hoặc Body cũng được
+        if (refreshToken == null) {
+            throw new RuntimeException("Refresh Token is missing");
+        }
+        return ResponseEntity.ok(authService.refreshToken(refreshToken));
     }
 }
