@@ -4,6 +4,7 @@ import iuh.fit.se.tramcamxuc.common.service.EmailService;
 import iuh.fit.se.tramcamxuc.common.service.JwtService;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.request.RegisterRequest;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.request.ResetPasswordRequest;
+import iuh.fit.se.tramcamxuc.modules.auth.dto.request.SocialLoginRequest;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.response.AuthResponse;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.request.LoginRequest;
 import iuh.fit.se.tramcamxuc.modules.auth.entity.RefreshToken;
@@ -22,6 +23,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -42,9 +44,14 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final CustomUserDetailsServiceImpl customUserDetailsService;
+    private final RestTemplate restTemplate;
 
     @Value("${application.security.otp.expiration-minutes}")
     private long otpExpirationMinutes;
+    @Value("${url.to.login.with.facebook}")
+    private String facebookLoginUrl;
+    @Value("${url.to.login.with.google}")
+    private String googleLoginUrl;
 
     @Transactional
     public String register(RegisterRequest request) {
@@ -192,6 +199,46 @@ public class AuthServiceImpl implements AuthService {
         forgotPassword(email);
     }
 
+    @Override
+    public AuthResponse loginSocial(SocialLoginRequest request) {
+        String email;
+        String name;
+        String avatarUrl;
+        String providerId;
+
+        if (request.getProvider() == AuthProvider.GOOGLE) {
+            Map<String, Object> googleInfo = verifyGoogleToken(request.getToken());
+            email = (String) googleInfo.get("email");
+            name = (String) googleInfo.get("name");
+            avatarUrl = (String) googleInfo.get("picture");
+            providerId = (String) googleInfo.get("sub");
+        } else if (request.getProvider() == AuthProvider.FACEBOOK) {
+            Map<String, Object> fbInfo = verifyFacebookToken(request.getToken());
+            email = (String) fbInfo.get("email");
+            name = (String) fbInfo.get("name");
+            Map<String, Object> pictureObj = (Map<String, Object>) fbInfo.get("picture");
+            Map<String, Object> dataObj = (Map<String, Object>) pictureObj.get("data");
+            avatarUrl = (String) dataObj.get("url");
+            providerId = (String) fbInfo.get("id");
+        } else {
+            throw new RuntimeException("Provider không hỗ trợ");
+        }
+
+        User user = processSocialUser(email, name, avatarUrl, request.getProvider(), providerId);
+
+        var userDetails = customUserDetailsService.loadUserByUsername(user.getEmail());
+        var accessToken = jwtService.generateAccessToken(userDetails);
+        var refreshToken = jwtService.generateRefreshToken(userDetails);
+
+        saveUserRefreshToken(user, refreshToken);
+
+        return AuthResponse.builder()
+                .message("Đăng nhập Social thành công")
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
     private void sendVerificationOtp(User user) {
         String otp = String.valueOf(new Random().nextInt(900000) + 100000);
 
@@ -234,5 +281,49 @@ public class AuthServiceImpl implements AuthService {
                 .expiryDate(LocalDateTime.now().plusDays(7))
                 .build();
         refreshTokenRepository.save(token);
+    }
+
+    private User processSocialUser(String email, String name, String avatarUrl, AuthProvider provider, String providerId) {
+        var userOptional = userRepository.findByEmail(email);
+
+        if (userOptional.isPresent()) {
+            User existingUser = userOptional.get();
+            existingUser.setAvatarUrl(avatarUrl);
+            existingUser.setProvider(provider);
+            existingUser.setProviderId(providerId);
+            return userRepository.save(existingUser);
+        } else {
+            User newUser = User.builder()
+                    .email(email)
+                    .username(email)
+                    .fullName(name)
+                    .password(passwordEncoder.encode("SOCIAL_LOGIN_PASS"))
+                    .role(Role.USER)
+                    .provider(provider)
+                    .providerId(providerId)
+                    .avatarUrl(avatarUrl)
+                    .isActive(UserStatus.ACTIVE)
+                    .dob(LocalDate.now())
+                    .build();
+            return userRepository.save(newUser);
+        }
+    }
+
+    private Map<String, Object> verifyGoogleToken(String idToken) {
+        try {
+            String url = googleLoginUrl + idToken;
+            return restTemplate.getForObject(url, Map.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Google Token không hợp lệ: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> verifyFacebookToken(String accessToken) {
+        try {
+            String url = facebookLoginUrl + accessToken;
+            return restTemplate.getForObject(url, Map.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Facebook Token không hợp lệ: " + e.getMessage());
+        }
     }
 }
