@@ -42,7 +42,6 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(@RequestHeader("x-refresh-token") String refreshToken) {
-        // Lấy token từ Header cho chuyên nghiệp, hoặc Body cũng được
         if (refreshToken == null) {
             throw new RuntimeException("Refresh Token is missing");
         }
