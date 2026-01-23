@@ -33,6 +33,7 @@ public class User extends BaseEntity{
     @Enumerated(EnumType.STRING)
     private Gender gender;
 
+    @Column(nullable = false)
     @JsonFormat(pattern = "dd-MM-yyyy")
     private LocalDate dob;
 

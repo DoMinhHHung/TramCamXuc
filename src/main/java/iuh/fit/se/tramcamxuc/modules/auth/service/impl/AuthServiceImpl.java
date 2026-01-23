@@ -3,6 +3,8 @@ package iuh.fit.se.tramcamxuc.modules.auth.service.impl;
 import iuh.fit.se.tramcamxuc.common.service.EmailService;
 import iuh.fit.se.tramcamxuc.common.service.JwtService;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.request.RegisterRequest;
+import iuh.fit.se.tramcamxuc.modules.auth.dto.request.ResetPasswordRequest;
+import iuh.fit.se.tramcamxuc.modules.auth.dto.request.SocialLoginRequest;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.response.AuthResponse;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.request.LoginRequest;
 import iuh.fit.se.tramcamxuc.modules.auth.entity.RefreshToken;
@@ -21,6 +23,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -41,9 +44,14 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final CustomUserDetailsServiceImpl customUserDetailsService;
+    private final RestTemplate restTemplate;
 
     @Value("${application.security.otp.expiration-minutes}")
     private long otpExpirationMinutes;
+    @Value("${url.to.login.with.facebook}")
+    private String facebookLoginUrl;
+    @Value("${url.to.login.with.google}")
+    private String googleLoginUrl;
 
     @Transactional
     public String register(RegisterRequest request) {
@@ -125,6 +133,7 @@ public class AuthServiceImpl implements AuthService {
         saveUserRefreshToken(user, refreshToken);
 
         return AuthResponse.builder()
+                .message("Login successful")
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build();
@@ -159,8 +168,79 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    @Override
+    public void forgotPassword(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email chưa được đăng ký trong hệ thống"));
+
+        sendForgotPasswordOtp(user);
+    }
+
+    @Override
+    public void resetPassword(ResetPasswordRequest request) {
+        String key = "FORGOT_PASS_OTP:" + request.getEmail();
+        String storedOtp = redisTemplate.opsForValue().get(key);
+
+        if (storedOtp == null || !storedOtp.equals(request.getOtp())) {
+            throw new RuntimeException("OTP không hợp lệ hoặc đã hết hạn");
+        }
+
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        redisTemplate.delete(key);
+    }
+
+    @Override
+    public void resendForgotPasswordOtp(String email) {
+        forgotPassword(email);
+    }
+
+    @Override
+    public AuthResponse loginSocial(SocialLoginRequest request) {
+        String email;
+        String name;
+        String avatarUrl;
+        String providerId;
+
+        if (request.getProvider() == AuthProvider.GOOGLE) {
+            Map<String, Object> googleInfo = verifyGoogleToken(request.getToken());
+            email = (String) googleInfo.get("email");
+            name = (String) googleInfo.get("name");
+            avatarUrl = (String) googleInfo.get("picture");
+            providerId = (String) googleInfo.get("sub");
+        } else if (request.getProvider() == AuthProvider.FACEBOOK) {
+            Map<String, Object> fbInfo = verifyFacebookToken(request.getToken());
+            email = (String) fbInfo.get("email");
+            name = (String) fbInfo.get("name");
+            Map<String, Object> pictureObj = (Map<String, Object>) fbInfo.get("picture");
+            Map<String, Object> dataObj = (Map<String, Object>) pictureObj.get("data");
+            avatarUrl = (String) dataObj.get("url");
+            providerId = (String) fbInfo.get("id");
+        } else {
+            throw new RuntimeException("Provider không hỗ trợ");
+        }
+
+        User user = processSocialUser(email, name, avatarUrl, request.getProvider(), providerId);
+
+        var userDetails = customUserDetailsService.loadUserByUsername(user.getEmail());
+        var accessToken = jwtService.generateAccessToken(userDetails);
+        var refreshToken = jwtService.generateRefreshToken(userDetails);
+
+        saveUserRefreshToken(user, refreshToken);
+
+        return AuthResponse.builder()
+                .message("Đăng nhập Social thành công")
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
     private void sendVerificationOtp(User user) {
-        String otp = String.valueOf(new Random().nextInt(900000) + 100000); // 6 digits
+        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
 
         redisTemplate.opsForValue().set(
                 "OTP:" + user.getEmail(),
@@ -176,6 +256,23 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
+    private void sendForgotPasswordOtp(User user) {
+        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
+
+        redisTemplate.opsForValue().set(
+                "FORGOT_PASS_OTP:" + user.getEmail(),
+                otp,
+                Duration.ofMinutes(5)
+        );
+
+        emailService.sendHtmlEmail(
+                user.getEmail(),
+                "Đặt lại mật khẩu Phazel Sound",
+                "email/forgot-password",
+                Map.of("name", user.getFullName(), "otp", otp)
+        );
+    }
+
     private void saveUserRefreshToken(User user, String jwtToken) {
         var token = RefreshToken.builder()
                 .user(user)
@@ -184,5 +281,49 @@ public class AuthServiceImpl implements AuthService {
                 .expiryDate(LocalDateTime.now().plusDays(7))
                 .build();
         refreshTokenRepository.save(token);
+    }
+
+    private User processSocialUser(String email, String name, String avatarUrl, AuthProvider provider, String providerId) {
+        var userOptional = userRepository.findByEmail(email);
+
+        if (userOptional.isPresent()) {
+            User existingUser = userOptional.get();
+            existingUser.setAvatarUrl(avatarUrl);
+            existingUser.setProvider(provider);
+            existingUser.setProviderId(providerId);
+            return userRepository.save(existingUser);
+        } else {
+            User newUser = User.builder()
+                    .email(email)
+                    .username(email)
+                    .fullName(name)
+                    .password(passwordEncoder.encode("SOCIAL_LOGIN_PASS"))
+                    .role(Role.USER)
+                    .provider(provider)
+                    .providerId(providerId)
+                    .avatarUrl(avatarUrl)
+                    .isActive(UserStatus.ACTIVE)
+                    .dob(LocalDate.now())
+                    .build();
+            return userRepository.save(newUser);
+        }
+    }
+
+    private Map<String, Object> verifyGoogleToken(String idToken) {
+        try {
+            String url = googleLoginUrl + idToken;
+            return restTemplate.getForObject(url, Map.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Google Token không hợp lệ: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> verifyFacebookToken(String accessToken) {
+        try {
+            String url = facebookLoginUrl + accessToken;
+            return restTemplate.getForObject(url, Map.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Facebook Token không hợp lệ: " + e.getMessage());
+        }
     }
 }
