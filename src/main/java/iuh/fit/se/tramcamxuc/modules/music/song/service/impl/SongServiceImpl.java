@@ -9,6 +9,7 @@ import iuh.fit.se.tramcamxuc.modules.music.genre.entity.Genre;
 import iuh.fit.se.tramcamxuc.modules.music.genre.repository.GenreRepository;
 import iuh.fit.se.tramcamxuc.modules.music.song.dto.request.CreateSongRequest;
 import iuh.fit.se.tramcamxuc.modules.music.song.dto.request.UpdateSongRequest;
+import iuh.fit.se.tramcamxuc.modules.music.song.dto.response.SongResponse;
 import iuh.fit.se.tramcamxuc.modules.music.song.entity.Song;
 import iuh.fit.se.tramcamxuc.modules.music.song.entity.enums.SongStatus;
 import iuh.fit.se.tramcamxuc.modules.music.song.repository.SongRepository;
@@ -21,6 +22,8 @@ import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.mp4parser.IsoFile;
 import org.mp4parser.boxes.iso14496.part12.MovieHeaderBox;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -49,7 +52,7 @@ public class SongServiceImpl implements SongService {
 
     @Override
     @Transactional
-    public Song uploadSong(CreateSongRequest request) {
+    public SongResponse uploadSong(CreateSongRequest request) {
         User currentUser = userService.getCurrentUser();
 
         Artist artist = artistRepository.findByUserId(currentUser.getId())
@@ -91,12 +94,13 @@ public class SongServiceImpl implements SongService {
                 .genres(genres)
                 .build();
 
-        return songRepository.save(song);
+        Song savedSong = songRepository.save(song);
+        return SongResponse.fromEntity(savedSong);
     }
 
     @Override
     @Transactional
-    public Song updateSong(UUID songId, UpdateSongRequest request) {
+    public SongResponse updateSong(UUID songId, UpdateSongRequest request) {
         Song song = songRepository.findById(songId)
                 .orElseThrow(() -> new AppException("The song does not exist"));
 
@@ -133,17 +137,18 @@ public class SongServiceImpl implements SongService {
                 cloudinaryService.deleteImage(oldCoverUrl);
             }
         }
-        return songRepository.save(song);
+        Song updatedSong = songRepository.save(song);
+        return SongResponse.fromEntity(updatedSong);
     }
 
     @Override
     @Transactional
-    public Song changeSongStatus(UUID songId, SongStatus newStatus) {
+    public SongResponse changeSongStatus(UUID songId, SongStatus newStatus) {
         Song song = getSongAndCheckOwner(songId);
 
         SongStatus currentStatus = song.getStatus();
 
-        if (currentStatus == newStatus) return song;
+        if (currentStatus == newStatus) return SongResponse.fromEntity(song);
 
         if (currentStatus == SongStatus.PUBLIC && newStatus == SongStatus.DRAFT) {
             throw new AppException("The song is already public and cannot be changed directly to draft. If you want to change it to draft, please change it to private first.");
@@ -160,27 +165,35 @@ public class SongServiceImpl implements SongService {
             song.setStatus(newStatus);
         }
 
-        return songRepository.save(song);
+        Song savedSong = songRepository.save(song);
+        return SongResponse.fromEntity(savedSong);
     }
 // For ADMIN
-@Override
-@Transactional
-public void approveSong(UUID songId) {
-    Song song = songRepository.findById(songId)
-            .orElseThrow(() -> new AppException("The song does not exist"));
+    @Override
+    public Page<SongResponse> getPendingSongs(Pageable pageable) {
+        Page<Song> songs = songRepository.findByStatus(SongStatus.PENDING_APPROVAL, pageable);
 
-    if (song.getStatus() != SongStatus.PENDING_APPROVAL) {
-        throw new AppException("This song is not in pending status ( Current Status: " + song.getStatus() + ")");
+        return songs.map(SongResponse::fromEntity);
+    }
+    @Override
+    @Transactional
+    public void approveSong(UUID songId) {
+        Song song = songRepository.findById(songId)
+                .orElseThrow(() -> new AppException("The song does not exist"));
+
+        if (song.getStatus() != SongStatus.PENDING_APPROVAL) {
+            throw new AppException("This song is not in pending status ( Current Status: " + song.getStatus() + ")");
+        }
+
+        song.setStatus(SongStatus.PUBLIC);
+        song.setVerified(true);
+        songRepository.save(song);
+
+        log.info("Admin approved song: {}", song.getTitle());
     }
 
-    song.setStatus(SongStatus.PUBLIC);
-    song.setVerified(true);
-    songRepository.save(song);
-
-    log.info("Admin approved song: {}", song.getTitle());
-}
-
     @Override
+    @Transactional
     public void rejectSong(UUID songId, String reason) {
         Song song = songRepository.findById(songId)
                 .orElseThrow(() -> new AppException("The song does not exist"));
