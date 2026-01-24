@@ -39,7 +39,7 @@ public class UserController {
     @PostMapping(value = "/avatar", consumes = "multipart/form-data")
     public CompletableFuture<ResponseEntity<String>> uploadAvatar(@RequestParam("file") MultipartFile file) {
         return userService.uploadAvatar(file)
-                .thenApply(url -> ResponseEntity.ok(url))
+                .thenApply(ResponseEntity::ok)
                 .exceptionally(ex -> ResponseEntity.badRequest().body("Lỗi upload: " + ex.getMessage()));
     }
 
