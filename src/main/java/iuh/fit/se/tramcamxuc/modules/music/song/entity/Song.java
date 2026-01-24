@@ -1,6 +1,7 @@
 package iuh.fit.se.tramcamxuc.modules.music.song.entity;
 
 import iuh.fit.se.tramcamxuc.common.BaseEntity;
+import iuh.fit.se.tramcamxuc.modules.music.album.entity.Album;
 import iuh.fit.se.tramcamxuc.modules.music.artist.entity.Artist;
 import iuh.fit.se.tramcamxuc.modules.music.genre.entity.Genre;
 import iuh.fit.se.tramcamxuc.modules.music.song.entity.enums.SongStatus;
@@ -58,4 +59,8 @@ public class Song extends BaseEntity {
 
     @Column(nullable = false)
     private boolean isVerified = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "album_id")
+    private Album album;
 }
