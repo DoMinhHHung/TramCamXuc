@@ -22,16 +22,12 @@ import java.util.UUID;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminReviewSongController {
     private final SongService songService;
-    private final SongRepository songRepository;
 
     @GetMapping("/pending")
     public ResponseEntity<Page<SongResponse>> getPendingSongs(
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable
     ) {
-        Page<Song> songPage = songRepository.findByStatus(SongStatus.PENDING_APPROVAL, pageable);
-        Page<SongResponse> responsePage = songPage.map(SongResponse::fromEntity);
-
-        return ResponseEntity.ok(responsePage);
+        return ResponseEntity.ok(songService.getPendingSongs(pageable));
     }
 
     @PostMapping("/{id}/approve")
