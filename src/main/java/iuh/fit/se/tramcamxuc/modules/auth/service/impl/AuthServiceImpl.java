@@ -19,7 +19,9 @@ import iuh.fit.se.tramcamxuc.modules.user.entity.enums.UserStatus;
 import iuh.fit.se.tramcamxuc.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -321,7 +323,12 @@ public class AuthServiceImpl implements AuthService {
     private Map<String, Object> verifyGoogleToken(String idToken) {
         try {
             String url = googleLoginUrl + idToken;
-            return restTemplate.getForObject(url, Map.class);
+            return restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            ).getBody();
         } catch (Exception e) {
             throw new AppException("Google Token is invalid: " + e.getMessage());
         }
@@ -330,7 +337,12 @@ public class AuthServiceImpl implements AuthService {
     private Map<String, Object> verifyFacebookToken(String accessToken) {
         try {
             String url = facebookLoginUrl + accessToken;
-            return restTemplate.getForObject(url, Map.class);
+            return restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            ).getBody();
         } catch (Exception e) {
             throw new AppException("Facebook Token is invalid: " + e.getMessage());
         }

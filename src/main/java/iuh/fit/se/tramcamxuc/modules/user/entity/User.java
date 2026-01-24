@@ -54,5 +54,7 @@ public class User extends BaseEntity{
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "genre_id")
     )
+
+    @Builder.Default
     private Set<Genre> favoriteGenres = new HashSet<>();
 }
