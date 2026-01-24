@@ -1,6 +1,6 @@
-package iuh.fit.se.tramcamxuc.modules.music.repository;
+package iuh.fit.se.tramcamxuc.modules.music.genre.repository;
 
-import iuh.fit.se.tramcamxuc.modules.music.entity.Genre;
+import iuh.fit.se.tramcamxuc.modules.music.genre.entity.Genre;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

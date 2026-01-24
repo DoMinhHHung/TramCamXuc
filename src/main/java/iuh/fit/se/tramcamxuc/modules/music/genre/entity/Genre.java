@@ -1,4 +1,4 @@
-package iuh.fit.se.tramcamxuc.modules.music.entity;
+package iuh.fit.se.tramcamxuc.modules.music.genre.entity;
 
 import iuh.fit.se.tramcamxuc.common.BaseEntity;
 import jakarta.persistence.*;
