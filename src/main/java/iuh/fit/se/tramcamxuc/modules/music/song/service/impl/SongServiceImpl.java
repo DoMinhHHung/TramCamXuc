@@ -162,6 +162,36 @@ public class SongServiceImpl implements SongService {
 
         return songRepository.save(song);
     }
+// For ADMIN
+@Override
+@Transactional
+public void approveSong(UUID songId) {
+    Song song = songRepository.findById(songId)
+            .orElseThrow(() -> new AppException("The song does not exist"));
+
+    if (song.getStatus() != SongStatus.PENDING_APPROVAL) {
+        throw new AppException("This song is not in pending status ( Current Status: " + song.getStatus() + ")");
+    }
+
+    song.setStatus(SongStatus.PUBLIC);
+    song.setVerified(true);
+    songRepository.save(song);
+
+    log.info("Admin approved song: {}", song.getTitle());
+}
+
+    @Override
+    public void rejectSong(UUID songId, String reason) {
+        Song song = songRepository.findById(songId)
+                .orElseThrow(() -> new AppException("The song does not exist"));
+
+        song.setStatus(SongStatus.REJECTED);
+
+        // TODO: Gửi email thông báo lý do cho Artist (Làm sau)
+        log.info("Rejected song {}. Reason: {}", song.getTitle(), reason);
+
+        songRepository.save(song);
+    }
 
     //Helper methods
     private int getDurationFromMultipartFile(MultipartFile file) {

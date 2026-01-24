@@ -10,4 +10,8 @@ public interface SongService {
     Song uploadSong(CreateSongRequest request);
     Song updateSong(UUID songId, UpdateSongRequest request);
     Song changeSongStatus(UUID songId, SongStatus newStatus);
+
+// Admin
+    void approveSong(UUID songId);
+    void rejectSong(UUID songId, String reason);
 }

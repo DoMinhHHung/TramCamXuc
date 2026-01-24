@@ -27,6 +27,7 @@ public class SongResponse {
     private SongStatus status;
     private boolean isVerified;
 
+    private UUID artistId;
     private String artistName;
     private String artistSlug;
     private String artistAvatar;
@@ -48,6 +49,7 @@ public class SongResponse {
                 .listeningCount(song.getListeningCount())
                 .status(song.getStatus())
                 .isVerified(song.isVerified())
+                .artistId(song.getArtist().getId())
                 .artistName(song.getArtist().getName())
                 .artistSlug(song.getArtist().getSlug())
                 .artistAvatar(song.getArtist().getImageUrl())
