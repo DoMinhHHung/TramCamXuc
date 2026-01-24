@@ -2,10 +2,13 @@ package iuh.fit.se.tramcamxuc.modules.user.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import iuh.fit.se.tramcamxuc.common.BaseEntity;
+import iuh.fit.se.tramcamxuc.modules.music.entity.Genre;
 import iuh.fit.se.tramcamxuc.modules.user.entity.enums.*;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -44,4 +47,12 @@ public class User extends BaseEntity{
 
     @Enumerated(EnumType.STRING)
     private UserStatus isActive;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_favorite_genres",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "genre_id")
+    )
+    private Set<Genre> favoriteGenres = new HashSet<>();
 }

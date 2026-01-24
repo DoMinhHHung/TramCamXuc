@@ -5,15 +5,13 @@ import com.cloudinary.Transformation;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -21,74 +19,54 @@ import java.util.UUID;
 public class CloudinaryService {
     private final Cloudinary cloudinary;
 
-    public String uploadAvatar(MultipartFile file, String userId) {
-        File tempFile = null;
-        try {
-            Path tempPath = Files.createTempFile("avatar_" + userId, "_" + UUID.randomUUID().toString());
-            tempFile = tempPath.toFile();
+    @Async
+    public CompletableFuture<String> uploadAvatarAsync(MultipartFile file, String userId) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String publicId = "avatar_" + userId;
+                Map params = ObjectUtils.asMap(
+                        "folder", "tramcamxuc/avatars",
+                        "public_id", publicId,
+                        "overwrite", true,
+                        "invalidate", true,
+                        "resource_type", "image",
+                        "transformation", new Transformation()
+                                .width(500).height(500).crop("fill").gravity("face")
+                );
 
-            file.transferTo(tempFile);
+                Map uploadResult = cloudinary.uploader().upload(file.getBytes(), params);
+                String url = uploadResult.get("secure_url").toString();
 
-            String publicId = "avatar_" + userId;
-            Map params = ObjectUtils.asMap(
-                    "folder", "tramcamxuc/avatars",
-                    "public_id", publicId,
-                    "overwrite", true,
-                    "invalidate", true,
-                    "resource_type", "image",
-                    "transformation", new Transformation()
-                            .width(500).height(500).crop("fill").gravity("face")
-            );
+                log.info("Upload avatar thành công cho user {}: {}", userId, url);
+                return url;
 
-            Map uploadResult = cloudinary.uploader().upload(tempFile, params);
-
-            return uploadResult.get("secure_url").toString();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Lỗi upload ảnh: " + e.getMessage());
-        } finally {
-            if (tempFile != null && tempFile.exists()) {
-                if (!tempFile.delete()) {
-                    System.err.println("Không thể xóa file tạm: " + tempFile.getAbsolutePath());
-                }
+            } catch (IOException e) {
+                log.error("Lỗi upload avatar cho user {}: {}", userId, e.getMessage());
+                throw new RuntimeException("Upload ảnh thất bại: " + e.getMessage());
             }
-        }
+        });
     }
 
-    public String uploadImage(MultipartFile file, String folderName) {
-        try {
-            File tempFile = Files.createTempFile("upload_", UUID.randomUUID().toString()).toFile();
-            file.transferTo(tempFile);
-
-            Map params = ObjectUtils.asMap(
-                    "folder", folderName,
-                    "resource_type", "image"
-            );
-
-            Map uploadResult = cloudinary.uploader().upload(tempFile, params);
-
-            tempFile.delete();
-
-            return uploadResult.get("secure_url").toString();
-        } catch (IOException e) {
-            throw new RuntimeException("Lỗi upload ảnh: " + e.getMessage());
-        }
+    @Async
+    public CompletableFuture<String> uploadImageAsync(MultipartFile file, String folderName) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                Map params = ObjectUtils.asMap(
+                        "folder", folderName,
+                        "resource_type", "image"
+                );
+                Map uploadResult = cloudinary.uploader().upload(file.getBytes(), params);
+                return uploadResult.get("secure_url").toString();
+            } catch (IOException e) {
+                throw new RuntimeException("Lỗi upload ảnh: " + e.getMessage());
+            }
+        });
     }
 
-    public void deleteAvatar(String userId) {
-        try {
-            String publicId = "phazelsound/avatars/avatar_" + userId;
-            cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
-        } catch (Exception e) {
-            System.err.println("Lỗi xóa ảnh cũ: " + e.getMessage());
-        }
-    }
-
+    @Async
     public void deleteImage(String imageUrl) {
+        if (imageUrl == null) return;
         try {
-
-            if (imageUrl == null) return;
 
             String[] parts = imageUrl.split("/");
             String publicIdWithExtension = "";
