@@ -24,11 +24,13 @@ import org.mp4parser.IsoFile;
 import org.mp4parser.boxes.iso14496.part12.MovieHeaderBox;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.text.Normalizer;
@@ -49,6 +51,9 @@ public class SongServiceImpl implements SongService {
     private final SongRepository songRepository;
     private final ArtistRepository artistRepository;
     private final GenreRepository genreRepository;
+    private final StringRedisTemplate redisTemplate;
+
+    private static final String SONG_VIEW_COUNT_KEY = "song:view:buffer";
 
     @Override
     @Transactional
@@ -65,7 +70,15 @@ public class SongServiceImpl implements SongService {
         int duration = getDurationFromMultipartFile(request.getAudioFile());
         String slug = toSlug(request.getTitle()) + "-" + UUID.randomUUID().toString().substring(0, 6);
 
-        CompletableFuture<String> audioUploadFuture = minioService.uploadMusicFileAsync(request.getAudioFile());
+        File tempFile;
+        try {
+            tempFile = File.createTempFile("upload_", request.getAudioFile().getOriginalFilename());
+            request.getAudioFile().transferTo(tempFile);
+        } catch (IOException e) {
+            throw new AppException("Lỗi khi xử lý file nhạc: " + e.getMessage());
+        }
+
+        CompletableFuture<String> audioUploadFuture = minioService.uploadMusicFileAsync(tempFile, request.getAudioFile().getContentType(), request.getAudioFile().getOriginalFilename());
 
         CompletableFuture<String> coverUploadFuture = CompletableFuture.completedFuture(null);
         if (request.getCoverFile() != null && !request.getCoverFile().isEmpty()) {
@@ -168,7 +181,13 @@ public class SongServiceImpl implements SongService {
         Song savedSong = songRepository.save(song);
         return SongResponse.fromEntity(savedSong);
     }
-// For ADMIN
+
+    @Override
+    public void incrementListeningCount(UUID songId) {
+        redisTemplate.opsForHash().increment(SONG_VIEW_COUNT_KEY, songId.toString(), 1);
+    }
+
+    // For ADMIN
     @Override
     public Page<SongResponse> getPendingSongs(Pageable pageable) {
         Page<Song> songs = songRepository.findByStatus(SongStatus.PENDING_APPROVAL, pageable);

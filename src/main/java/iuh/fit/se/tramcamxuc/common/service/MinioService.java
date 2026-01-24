@@ -10,6 +10,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -28,30 +30,32 @@ public class MinioService {
     private String minioUrl;
 
     @Async
-    public CompletableFuture<String> uploadMusicFileAsync(MultipartFile file) {
+    public CompletableFuture<String> uploadMusicFileAsync(File file, String contentType, String originalFilename) {
         return CompletableFuture.supplyAsync(() -> {
-            try {
-                String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename().replaceAll("\\s+", "_");
+            try (FileInputStream inputStream = new FileInputStream(file)) {
+                String fileName = UUID.randomUUID().toString() + "_" + originalFilename.replaceAll("\\s+", "_");
 
-                InputStream inputStream = file.getInputStream();
                 minioClient.putObject(
                         PutObjectArgs.builder()
                                 .bucket(bucketName)
                                 .object(fileName)
-                                .stream(inputStream, file.getSize(), -1) // -1 là part size tự động
-                                .contentType(file.getContentType() != null ? file.getContentType() : "audio/mpeg")
+                                .stream(inputStream, file.length(), -1)
+                                .contentType(contentType)
                                 .build()
                 );
 
-                inputStream.close();
                 String fileUrl = String.format("%s/%s/%s", minioUrl, bucketName, fileName);
-
                 log.info("Upload nhạc thành công: {}", fileUrl);
+
                 return fileUrl;
 
             } catch (Exception e) {
                 log.error("Lỗi upload nhạc lên MinIO: {}", e.getMessage());
                 throw new RuntimeException("Upload nhạc thất bại: " + e.getMessage());
+            } finally {
+                if (file != null && file.exists()) {
+                    file.delete();
+                }
             }
         });
     }

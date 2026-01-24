@@ -60,6 +60,9 @@ public class AuthServiceImpl implements AuthService {
     @Value("${url.to.login.with.google}")
     private String googleLoginUrl;
 
+    @Value("${application.security.oauth2.google.client-id}")
+    private String googleClientId;
+
     @Transactional
     public String register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -303,10 +306,16 @@ public class AuthServiceImpl implements AuthService {
             existingUser.setProviderId(providerId);
             return userRepository.save(existingUser);
         } else {
+            String baseName = email.split("@")[0];
+            String randomUsername = baseName + "_" + (new Random().nextInt(9000) + 1000);
+            while (userRepository.existsByUsername(randomUsername)) {
+                randomUsername = baseName + "_" + (new Random().nextInt(90000) + 10000);
+            }
             String randomPassword = UUID.randomUUID().toString();
+
             User newUser = User.builder()
                     .email(email)
-                    .username(email)
+                    .username(randomUsername)
                     .fullName(name)
                     .password(passwordEncoder.encode(randomPassword))
                     .role(Role.USER)
@@ -320,15 +329,40 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+//    private Map<String, Object> verifyGoogleToken(String idToken) {
+//        try {
+//            String url = googleLoginUrl + idToken;
+//            return restTemplate.exchange(
+//                    url,
+//                    HttpMethod.GET,
+//                    null,
+//                    new ParameterizedTypeReference<Map<String, Object>>() {}
+//            ).getBody();
+//        } catch (Exception e) {
+//            throw new AppException("Google Token is invalid: " + e.getMessage());
+//        }
+//    }
+
     private Map<String, Object> verifyGoogleToken(String idToken) {
         try {
             String url = googleLoginUrl + idToken;
-            return restTemplate.exchange(
+            Map<String, Object> body = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     null,
                     new ParameterizedTypeReference<Map<String, Object>>() {}
             ).getBody();
+
+            if (body == null || !body.containsKey("aud")) {
+                throw new AppException("Invalid Token response");
+            }
+
+            String aud = (String) body.get("aud");
+            if (!aud.equals(googleClientId)) {
+                throw new AppException("Token này không phải của app mình! Cút ngay!");
+            }
+
+            return body;
         } catch (Exception e) {
             throw new AppException("Google Token is invalid: " + e.getMessage());
         }
