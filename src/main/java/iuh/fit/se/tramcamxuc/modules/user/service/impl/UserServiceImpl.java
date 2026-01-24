@@ -4,8 +4,8 @@ import iuh.fit.se.tramcamxuc.common.exception.AppException;
 import iuh.fit.se.tramcamxuc.common.exception.ResourceNotFoundException;
 import iuh.fit.se.tramcamxuc.common.service.CloudinaryService;
 import iuh.fit.se.tramcamxuc.common.service.EmailService;
-import iuh.fit.se.tramcamxuc.modules.music.entity.Genre;
-import iuh.fit.se.tramcamxuc.modules.music.repository.GenreRepository;
+import iuh.fit.se.tramcamxuc.modules.music.genre.entity.Genre;
+import iuh.fit.se.tramcamxuc.modules.music.genre.repository.GenreRepository;
 import iuh.fit.se.tramcamxuc.modules.user.dto.request.ChangePasswordRequest;
 import iuh.fit.se.tramcamxuc.modules.user.dto.request.OnboardingGenreRequest;
 import iuh.fit.se.tramcamxuc.modules.user.dto.request.UpdateProfileRequest;
@@ -26,7 +26,6 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
 @Service

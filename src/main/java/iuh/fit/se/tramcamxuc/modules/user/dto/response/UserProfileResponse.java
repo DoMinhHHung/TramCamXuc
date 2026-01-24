@@ -1,7 +1,7 @@
 package iuh.fit.se.tramcamxuc.modules.user.dto.response;
 
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
-import iuh.fit.se.tramcamxuc.modules.music.entity.Genre;
+import iuh.fit.se.tramcamxuc.modules.music.genre.entity.Genre;
 import lombok.*;
 import java.time.LocalDate;
 import java.util.Set;

@@ -2,7 +2,7 @@ package iuh.fit.se.tramcamxuc.modules.user.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import iuh.fit.se.tramcamxuc.common.BaseEntity;
-import iuh.fit.se.tramcamxuc.modules.music.entity.Genre;
+import iuh.fit.se.tramcamxuc.modules.music.genre.entity.Genre;
 import iuh.fit.se.tramcamxuc.modules.user.entity.enums.*;
 import jakarta.persistence.*;
 import lombok.*;
