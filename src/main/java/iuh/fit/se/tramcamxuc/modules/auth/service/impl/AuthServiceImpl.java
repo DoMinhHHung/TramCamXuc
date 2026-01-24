@@ -1,5 +1,7 @@
 package iuh.fit.se.tramcamxuc.modules.auth.service.impl;
 
+import iuh.fit.se.tramcamxuc.common.exception.AppException;
+import iuh.fit.se.tramcamxuc.common.exception.ResourceNotFoundException;
 import iuh.fit.se.tramcamxuc.common.service.EmailService;
 import iuh.fit.se.tramcamxuc.common.service.JwtService;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.request.RegisterRequest;
@@ -25,12 +27,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +49,7 @@ public class AuthServiceImpl implements AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final CustomUserDetailsServiceImpl customUserDetailsService;
     private final RestTemplate restTemplate;
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${application.security.otp.expiration-minutes}")
     private long otpExpirationMinutes;
@@ -56,10 +61,10 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public String register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already in use");
+            throw new AppException("Email already in use");
         }
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already in use");
+            throw new AppException("Username already in use");
         }
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -87,14 +92,14 @@ public class AuthServiceImpl implements AuthService {
         String storedOtp = redisTemplate.opsForValue().get(key);
 
         if (storedOtp == null || !storedOtp.equals(otp)) {
-            throw new RuntimeException("Invalid or expired OTP");
+            throw new AppException("Invalid or expired OTP");
         }
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (user.getIsActive() == UserStatus.ACTIVE) {
-            throw new RuntimeException("Account already verified");
+            throw new AppException("Account already verified");
         }
 
         user.setIsActive(UserStatus.ACTIVE);
@@ -124,7 +129,7 @@ public class AuthServiceImpl implements AuthService {
         var user = userRepository.findByEmail(request.getEmail()).orElseThrow();
 
         if (user.getIsActive() != UserStatus.ACTIVE) {
-            throw new RuntimeException("Account not activated. Please verify email.");
+            throw new AppException("Account not activated. Please verify email.");
         }
 
         var accessToken = jwtService.generateAccessToken(userDetails);
@@ -142,14 +147,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse refreshToken(String refreshToken) {
         RefreshToken storedToken = refreshTokenRepository.findByToken(refreshToken)
-                .orElseThrow(() -> new RuntimeException("Refresh token not found"));
+                .orElseThrow(() -> new AppException("Refresh token not found"));
 
         if (storedToken.isRevoked()) {
-            throw new RuntimeException("Refresh token has been revoked. Security alert!");
+            throw new AppException("Refresh token has been revoked. Security alert!");
         }
 
         if (storedToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Refresh token expired. Please login again.");
+            throw new AppException("Refresh token expired. Please login again.");
         }
 
         User user = storedToken.getUser();
@@ -171,7 +176,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void forgotPassword(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email chưa được đăng ký trong hệ thống"));
+                .orElseThrow(() -> new ResourceNotFoundException("Email chưa được đăng ký trong hệ thống"));
 
         sendForgotPasswordOtp(user);
     }
@@ -182,11 +187,11 @@ public class AuthServiceImpl implements AuthService {
         String storedOtp = redisTemplate.opsForValue().get(key);
 
         if (storedOtp == null || !storedOtp.equals(request.getOtp())) {
-            throw new RuntimeException("OTP không hợp lệ hoặc đã hết hạn");
+            throw new AppException("OTP is invalid or has expired");
         }
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
@@ -221,7 +226,7 @@ public class AuthServiceImpl implements AuthService {
             avatarUrl = (String) dataObj.get("url");
             providerId = (String) fbInfo.get("id");
         } else {
-            throw new RuntimeException("Provider không hỗ trợ");
+            throw new AppException("Provider is not supported");
         }
 
         User user = processSocialUser(email, name, avatarUrl, request.getProvider(), providerId);
@@ -233,14 +238,14 @@ public class AuthServiceImpl implements AuthService {
         saveUserRefreshToken(user, refreshToken);
 
         return AuthResponse.builder()
-                .message("Đăng nhập Social thành công")
+                .message("Login with " + request.getProvider() + " successful")
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build();
     }
 
     private void sendVerificationOtp(User user) {
-        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
+        String otp = String.valueOf(secureRandom.nextInt(900000) + 100000);
 
         redisTemplate.opsForValue().set(
                 "OTP:" + user.getEmail(),
@@ -250,14 +255,14 @@ public class AuthServiceImpl implements AuthService {
 
         emailService.sendHtmlEmail(
                 user.getEmail(),
-                "Xác thực tài khoản Phazel Sound",
+                "Xác thực tài khoản Trạm Cảm Xúc",
                 "email/register-otp",
                 Map.of("name", user.getFullName(), "otp", otp)
         );
     }
 
     private void sendForgotPasswordOtp(User user) {
-        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
+        String otp = String.valueOf(secureRandom.nextInt(900000) + 100000);
 
         redisTemplate.opsForValue().set(
                 "FORGOT_PASS_OTP:" + user.getEmail(),
@@ -267,13 +272,16 @@ public class AuthServiceImpl implements AuthService {
 
         emailService.sendHtmlEmail(
                 user.getEmail(),
-                "Đặt lại mật khẩu Phazel Sound",
+                "Đặt lại mật khẩu Trạm Cảm Xúc",
                 "email/forgot-password",
                 Map.of("name", user.getFullName(), "otp", otp)
         );
     }
 
     private void saveUserRefreshToken(User user, String jwtToken) {
+        try {
+            refreshTokenRepository.deleteByUser(user);
+        } catch (Exception e) {}
         var token = RefreshToken.builder()
                 .user(user)
                 .token(jwtToken)
@@ -293,11 +301,12 @@ public class AuthServiceImpl implements AuthService {
             existingUser.setProviderId(providerId);
             return userRepository.save(existingUser);
         } else {
+            String randomPassword = UUID.randomUUID().toString();
             User newUser = User.builder()
                     .email(email)
                     .username(email)
                     .fullName(name)
-                    .password(passwordEncoder.encode("SOCIAL_LOGIN_PASS"))
+                    .password(passwordEncoder.encode(randomPassword))
                     .role(Role.USER)
                     .provider(provider)
                     .providerId(providerId)
@@ -314,7 +323,7 @@ public class AuthServiceImpl implements AuthService {
             String url = googleLoginUrl + idToken;
             return restTemplate.getForObject(url, Map.class);
         } catch (Exception e) {
-            throw new RuntimeException("Google Token không hợp lệ: " + e.getMessage());
+            throw new AppException("Google Token is invalid: " + e.getMessage());
         }
     }
 
@@ -323,7 +332,7 @@ public class AuthServiceImpl implements AuthService {
             String url = facebookLoginUrl + accessToken;
             return restTemplate.getForObject(url, Map.class);
         } catch (Exception e) {
-            throw new RuntimeException("Facebook Token không hợp lệ: " + e.getMessage());
+            throw new AppException("Facebook Token is invalid: " + e.getMessage());
         }
     }
 }

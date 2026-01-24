@@ -1,5 +1,7 @@
 package iuh.fit.se.tramcamxuc.modules.user.service.impl;
 
+import iuh.fit.se.tramcamxuc.common.exception.AppException;
+import iuh.fit.se.tramcamxuc.common.exception.ResourceNotFoundException;
 import iuh.fit.se.tramcamxuc.common.service.CloudinaryService;
 import iuh.fit.se.tramcamxuc.common.service.EmailService;
 import iuh.fit.se.tramcamxuc.modules.music.entity.Genre;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
@@ -36,16 +39,17 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
     private final EmailService emailService;
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     @Override
     public User getCurrentUser() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            throw new RuntimeException("User not authenticated");
+            throw new AppException("User not authenticated");
         }
         String email = authentication.getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
     }
 
     @Override
@@ -87,7 +91,7 @@ public class UserServiceImpl implements UserService {
         List<Genre> genres = genreRepository.findAllById(request.getGenreIds());
 
         if (genres.isEmpty() || genres.size() > 5) {
-            throw new RuntimeException("Genres must be between 1 and 5");
+            throw new AppException("Genres must be between 1 and 5");
         }
 
         user.setFavoriteGenres(new HashSet<>(genres));
@@ -98,8 +102,7 @@ public class UserServiceImpl implements UserService {
     public void requestChangePasswordOtp() {
         User user = getCurrentUser();
 
-        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
-
+        String otp = String.valueOf(secureRandom.nextInt(900000) + 100000);
         String key = "CHANGE_PASS_OTP:" + user.getEmail();
         redisTemplate.opsForValue().set(key, otp, Duration.ofMinutes(5));
 
@@ -116,19 +119,15 @@ public class UserServiceImpl implements UserService {
     public void changePasswordWithOtp(ChangePasswordRequest request) {
         User user = getCurrentUser();
 
-        if (user.getPassword() != null && !passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            throw new RuntimeException("Old password is incorrect");
-        }
-
         String key = "CHANGE_PASS_OTP:" + user.getEmail();
         String storedOtp = redisTemplate.opsForValue().get(key);
 
         if (storedOtp == null || !storedOtp.equals(request.getOtp())) {
-            throw new RuntimeException("OTP is invalid or has expired");
+            throw new AppException("OTP is invalid or has expired");
         }
 
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new RuntimeException("Confirm password does not match");
+            throw new AppException("Confirm password does not match");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
