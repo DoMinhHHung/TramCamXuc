@@ -14,6 +14,7 @@ public interface SongService {
     SongResponse updateSong(UUID songId, UpdateSongRequest request);
     SongResponse changeSongStatus(UUID songId, SongStatus newStatus);
 
+    void incrementListeningCount(UUID songId);
 // Admin
     Page<SongResponse> getPendingSongs(Pageable pageable);
     void approveSong(UUID songId);
