@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -43,5 +44,10 @@ public class SongController {
     @GetMapping("/{slug}")
     public ResponseEntity<SongResponse> getSongBySlug(@PathVariable String slug) {
         return ResponseEntity.ok(songService.getSongBySlug(slug));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<SongResponse>> searchSongs(@RequestParam String keyword) {
+        return ResponseEntity.ok(songService.searchSongs(keyword));
     }
 }

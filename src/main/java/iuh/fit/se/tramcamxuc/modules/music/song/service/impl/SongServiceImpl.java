@@ -35,12 +35,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.text.Normalizer;
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -181,6 +179,19 @@ public class SongServiceImpl implements SongService {
 
         Song savedSong = songRepository.save(song);
         return SongResponse.fromEntity(savedSong);
+    }
+
+    @Override
+    public List<SongResponse> searchSongs(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return List.of();
+        }
+
+        List<Song> songs = songRepository.searchByKeyword(keyword.trim());
+
+        return songs.stream()
+                .map(SongResponse::fromEntity)
+                .collect(Collectors.toList());
     }
 
     @Override
