@@ -39,4 +39,9 @@ public class SongController {
     ) {
         return ResponseEntity.ok(songService.changeSongStatus(id, request.getStatus()));
     }
+
+    @GetMapping("/{slug}")
+    public ResponseEntity<SongResponse> getSongBySlug(@PathVariable String slug) {
+        return ResponseEntity.ok(songService.getSongBySlug(slug));
+    }
 }
