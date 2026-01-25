@@ -37,7 +37,6 @@ public class User extends BaseEntity{
     private Gender gender;
 
     @Column(nullable = false)
-    @JsonFormat(pattern = "dd-MM-yyyy")
     private LocalDate dob;
 
     @Enumerated(EnumType.STRING)
@@ -48,13 +47,12 @@ public class User extends BaseEntity{
     @Enumerated(EnumType.STRING)
     private UserStatus isActive;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_favorite_genres",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "genre_id")
     )
-
     @Builder.Default
     private Set<Genre> favoriteGenres = new HashSet<>();
 }

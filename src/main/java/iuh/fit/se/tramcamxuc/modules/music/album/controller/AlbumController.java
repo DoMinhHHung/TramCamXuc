@@ -1,5 +1,6 @@
 package iuh.fit.se.tramcamxuc.modules.music.album.controller;
 
+import iuh.fit.se.tramcamxuc.common.exception.dto.ApiResponse;
 import iuh.fit.se.tramcamxuc.modules.music.album.dto.request.AddSongToAlbumRequest;
 import iuh.fit.se.tramcamxuc.modules.music.album.dto.request.CreateAlbumRequest;
 import iuh.fit.se.tramcamxuc.modules.music.album.dto.response.AlbumResponse;
@@ -19,18 +20,18 @@ public class AlbumController {
     private final AlbumServiceImpl albumService;
 
     @GetMapping("/{slug}")
-    public ResponseEntity<AlbumResponse> getAlbum(@PathVariable String slug) {
-        return ResponseEntity.ok(albumService.getAlbumBySlug(slug));
+    public ResponseEntity<ApiResponse<AlbumResponse>> getAlbum(@PathVariable String slug) {
+        return ResponseEntity.ok(ApiResponse.success(albumService.getAlbumBySlug(slug)));
     }
 
     @PostMapping
-    public ResponseEntity<AlbumResponse> createAlbum(@RequestBody @Valid CreateAlbumRequest request) {
-        return ResponseEntity.ok(albumService.createAlbum(request));
+    public ResponseEntity<ApiResponse<AlbumResponse>> createAlbum(@RequestBody @Valid CreateAlbumRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(albumService.createAlbum(request)));
     }
 
     @PostMapping("/{id}/songs")
-    public ResponseEntity<String> addSongs(@PathVariable UUID id, @RequestBody @Valid AddSongToAlbumRequest request) {
+    public ResponseEntity<ApiResponse<String>> addSongs(@PathVariable UUID id, @RequestBody @Valid AddSongToAlbumRequest request) {
         albumService.addSongsToAlbum(id, request);
-        return ResponseEntity.ok("Đã thêm bài hát vào album thành công.");
+        return ResponseEntity.ok(ApiResponse.success("Đã thêm bài hát vào album thành công."));
     }
 }

@@ -29,7 +29,7 @@ public interface SongRepository extends JpaRepository<Song, UUID> {
 
     @Query("SELECT s FROM Song s " +
             "LEFT JOIN FETCH s.artist " +
-            "WHERE LOWER(s.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "OR LOWER(s.artist.name) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+            "WHERE LOWER(s.title) LIKE LOWER(CONCAT(:keyword, '%')) " +
+            "OR LOWER(s.artist.name) LIKE LOWER(CONCAT(:keyword, '%'))")
     List<Song> searchByKeyword(@Param("keyword") String keyword);
 }

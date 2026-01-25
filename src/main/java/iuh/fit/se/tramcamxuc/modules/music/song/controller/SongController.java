@@ -1,8 +1,8 @@
 package iuh.fit.se.tramcamxuc.modules.music.song.controller;
 
+import iuh.fit.se.tramcamxuc.common.exception.dto.ApiResponse;
 import iuh.fit.se.tramcamxuc.modules.music.song.dto.request.*;
 import iuh.fit.se.tramcamxuc.modules.music.song.dto.response.SongResponse;
-import iuh.fit.se.tramcamxuc.modules.music.song.entity.Song;
 import iuh.fit.se.tramcamxuc.modules.music.song.service.impl.SongServiceImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,33 +21,33 @@ public class SongController {
     private final SongServiceImpl songService;
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<SongResponse> uploadSong(@ModelAttribute @Valid CreateSongRequest request) {
-        return ResponseEntity.ok(songService.uploadSong(request));
+    public ResponseEntity<ApiResponse<SongResponse>> uploadSong(@ModelAttribute @Valid CreateSongRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(songService.uploadSong(request)));
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<SongResponse> updateSong(
+    public ResponseEntity<ApiResponse<SongResponse>> updateSong(
             @PathVariable UUID id,
             @ModelAttribute @Valid UpdateSongRequest request
     ) {
-        return ResponseEntity.ok(songService.updateSong(id, request));
+        return ResponseEntity.ok(ApiResponse.success(songService.updateSong(id, request)));
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<SongResponse> changeStatus(
+    public ResponseEntity<ApiResponse<SongResponse>> changeStatus(
             @PathVariable UUID id,
             @RequestBody @Valid ChangeSongStatusRequest request
     ) {
-        return ResponseEntity.ok(songService.changeSongStatus(id, request.getStatus()));
+        return ResponseEntity.ok(ApiResponse.success(songService.changeSongStatus(id, request.getStatus())));
     }
 
     @GetMapping("/{slug}")
-    public ResponseEntity<SongResponse> getSongBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(songService.getSongBySlug(slug));
+    public ResponseEntity<ApiResponse<SongResponse>> getSongBySlug(@PathVariable String slug) {
+        return ResponseEntity.ok(ApiResponse.success(songService.getSongBySlug(slug)));
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<SongResponse>> searchSongs(@RequestParam String keyword) {
-        return ResponseEntity.ok(songService.searchSongs(keyword));
+    public ResponseEntity<ApiResponse<List<SongResponse>>> searchSongs(@RequestParam String keyword) {
+        return ResponseEntity.ok(ApiResponse.success(songService.searchSongs(keyword)));
     }
 }

@@ -1,6 +1,7 @@
 package iuh.fit.se.tramcamxuc.modules.user.controller;
 
 import iuh.fit.se.tramcamxuc.common.annotation.RateLimit;
+import iuh.fit.se.tramcamxuc.common.exception.dto.ApiResponse;
 import iuh.fit.se.tramcamxuc.modules.user.dto.request.*;
 import iuh.fit.se.tramcamxuc.modules.user.dto.response.UserProfileResponse;
 import iuh.fit.se.tramcamxuc.modules.user.service.UserService;
@@ -20,31 +21,36 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("/me")
-    public ResponseEntity<UserProfileResponse> getMe() {
-        return ResponseEntity.ok(userService.getCurrentUserProfile());
+    public ResponseEntity<ApiResponse<UserProfileResponse>> getMe() {
+        return ResponseEntity.ok(ApiResponse.success(userService.getCurrentUserProfile()));
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<UserProfileResponse> updateProfile(@RequestBody UpdateProfileRequest request) {
-        return ResponseEntity.ok(userService.updateProfile(request));
+    public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile(@RequestBody UpdateProfileRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userService.updateProfile(request)));
     }
 
     @PostMapping("/change-password/otp")
     @RateLimit(key = "req_change_pass_otp", count = 3, period = 300)
-    public ResponseEntity<String> requestChangePasswordOtp() {
+    public ResponseEntity<ApiResponse<String>> requestChangePasswordOtp() {
         userService.requestChangePasswordOtp();
-        return ResponseEntity.ok("OTP đã được gửi đến email của bạn.");
+        return ResponseEntity.ok(ApiResponse.success("OTP đã được gửi đến email của bạn."));
     }
 
     @PostMapping(value = "/avatar", consumes = "multipart/form-data")
-    public CompletableFuture<ResponseEntity<String>> uploadAvatar(@RequestParam("file") MultipartFile file) {
+    public CompletableFuture<ResponseEntity<ApiResponse<String>>> uploadAvatar(@RequestParam("file") MultipartFile file) {
         return userService.uploadAvatar(file)
-                .thenApply(ResponseEntity::ok)
-                .exceptionally(ex -> ResponseEntity.badRequest().body("Lỗi upload: " + ex.getMessage()));
+                .handle((url, ex) -> {
+                    if (ex != null) {
+                        return ResponseEntity.badRequest()
+                                .body(ApiResponse.error(400, "Lỗi upload: " + ex.getMessage()));
+                    }
+                    return ResponseEntity.ok(ApiResponse.success(url));
+                });
     }
 
     @PostMapping("/onboarding/genres")
-    public ResponseEntity<UserProfileResponse> setFavoriteGenres(@RequestBody @Valid OnboardingGenreRequest request) {
-        return ResponseEntity.ok(userService.setFavoriteGenres(request));
+    public ResponseEntity<ApiResponse<UserProfileResponse>> setFavoriteGenres(@RequestBody @Valid OnboardingGenreRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userService.setFavoriteGenres(request)));
     }
 }
