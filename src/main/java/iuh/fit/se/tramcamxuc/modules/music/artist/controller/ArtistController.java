@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/artists")
 @RequiredArgsConstructor
@@ -24,5 +26,17 @@ public class ArtistController {
     @PostMapping("/register")
     public ResponseEntity<Artist> registerAsArtist(@RequestBody @Valid CreateArtistRequest request) {
         return ResponseEntity.ok(artistService.registerAsArtist(request));
+    }
+
+    @PostMapping("/{id}/follow")
+    public ResponseEntity<String> follow(@PathVariable UUID id) {
+        artistService.followArtist(id);
+        return ResponseEntity.ok("Followed success");
+    }
+
+    @DeleteMapping("/{id}/follow")
+    public ResponseEntity<String> unfollow(@PathVariable UUID id) {
+        artistService.unfollowArtist(id);
+        return ResponseEntity.ok("Unfollowed success");
     }
 }
