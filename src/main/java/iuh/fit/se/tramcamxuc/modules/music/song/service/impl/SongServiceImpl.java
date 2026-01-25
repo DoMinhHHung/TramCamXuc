@@ -1,6 +1,7 @@
 package iuh.fit.se.tramcamxuc.modules.music.song.service.impl;
 
 import iuh.fit.se.tramcamxuc.common.exception.AppException;
+import iuh.fit.se.tramcamxuc.common.exception.ResourceNotFoundException;
 import iuh.fit.se.tramcamxuc.common.service.CloudinaryService;
 import iuh.fit.se.tramcamxuc.common.service.MinioService;
 import iuh.fit.se.tramcamxuc.modules.music.artist.entity.Artist;
@@ -185,6 +186,16 @@ public class SongServiceImpl implements SongService {
     @Override
     public void incrementListeningCount(UUID songId) {
         redisTemplate.opsForHash().increment(SONG_VIEW_COUNT_KEY, songId.toString(), 1);
+    }
+
+    @Override
+    public SongResponse getSongBySlug(String slug) {
+        Song song = songRepository.findBySlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException("This song does not exist"));
+
+        incrementListeningCount(song.getId());
+
+        return SongResponse.fromEntity(song);
     }
 
     // For ADMIN
