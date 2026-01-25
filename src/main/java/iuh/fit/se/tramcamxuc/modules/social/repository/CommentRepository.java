@@ -1,6 +1,6 @@
-package iuh.fit.se.tramcamxuc.modules.social.comment.repository;
+package iuh.fit.se.tramcamxuc.modules.social.repository;
 
-import iuh.fit.se.tramcamxuc.modules.social.comment.entity.Comment;
+import iuh.fit.se.tramcamxuc.modules.social.entity.Comment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;

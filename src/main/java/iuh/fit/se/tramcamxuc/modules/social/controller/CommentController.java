@@ -1,13 +1,13 @@
-package iuh.fit.se.tramcamxuc.modules.social.comment.controller;
+package iuh.fit.se.tramcamxuc.modules.social.controller;
 
-import iuh.fit.se.tramcamxuc.modules.social.comment.dto.request.CreateCommentRequest;
-import iuh.fit.se.tramcamxuc.modules.social.comment.entity.Comment;
-import iuh.fit.se.tramcamxuc.modules.social.comment.service.CommentService;
+import iuh.fit.se.tramcamxuc.modules.social.dto.request.CreateCommentRequest;
+import iuh.fit.se.tramcamxuc.modules.social.entity.Comment;
+import iuh.fit.se.tramcamxuc.modules.social.service.CommentService;
+import iuh.fit.se.tramcamxuc.modules.social.service.LikeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +19,7 @@ import java.util.UUID;
 public class CommentController {
 
     private final CommentService commentService;
+    private final LikeService likeService;
 
     @PostMapping
     public ResponseEntity<Comment> createComment(@RequestBody @Valid CreateCommentRequest request) {

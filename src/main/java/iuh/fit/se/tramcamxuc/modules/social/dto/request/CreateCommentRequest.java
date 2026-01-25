@@ -1,4 +1,4 @@
-package iuh.fit.se.tramcamxuc.modules.social.comment.dto.request;
+package iuh.fit.se.tramcamxuc.modules.social.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

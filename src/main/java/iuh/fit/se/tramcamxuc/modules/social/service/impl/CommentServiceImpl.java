@@ -1,11 +1,11 @@
-package iuh.fit.se.tramcamxuc.modules.social.comment.service.impl;
+package iuh.fit.se.tramcamxuc.modules.social.service.impl;
 
 import iuh.fit.se.tramcamxuc.common.exception.ResourceNotFoundException;
 import iuh.fit.se.tramcamxuc.modules.music.song.repository.SongRepository;
-import iuh.fit.se.tramcamxuc.modules.social.comment.dto.request.CreateCommentRequest;
-import iuh.fit.se.tramcamxuc.modules.social.comment.entity.Comment;
-import iuh.fit.se.tramcamxuc.modules.social.comment.repository.CommentRepository;
-import iuh.fit.se.tramcamxuc.modules.social.comment.service.CommentService;
+import iuh.fit.se.tramcamxuc.modules.social.dto.request.CreateCommentRequest;
+import iuh.fit.se.tramcamxuc.modules.social.entity.Comment;
+import iuh.fit.se.tramcamxuc.modules.social.repository.CommentRepository;
+import iuh.fit.se.tramcamxuc.modules.social.service.CommentService;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
 import iuh.fit.se.tramcamxuc.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;

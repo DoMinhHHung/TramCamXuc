@@ -1,4 +1,4 @@
-package iuh.fit.se.tramcamxuc.modules.social.comment.entity;
+package iuh.fit.se.tramcamxuc.modules.social.entity;
 
 import lombok.*;
 import org.springframework.data.annotation.Id;
