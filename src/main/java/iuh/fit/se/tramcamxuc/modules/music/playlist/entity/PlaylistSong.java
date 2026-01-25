@@ -3,6 +3,8 @@ package iuh.fit.se.tramcamxuc.modules.music.playlist.entity;
 import iuh.fit.se.tramcamxuc.modules.music.song.entity.Song;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -29,6 +31,8 @@ public class PlaylistSong {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("songId")
+    @JoinColumn(name = "song_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Song song;
 
     @CreatedDate

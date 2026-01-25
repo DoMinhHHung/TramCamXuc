@@ -46,15 +46,15 @@ public class MinioService {
 
                 String fileUrl = String.format("%s/%s/%s", minioUrl, bucketName, fileName);
                 log.info("Upload nhạc thành công: {}", fileUrl);
-
                 return fileUrl;
 
             } catch (Exception e) {
-                log.error("Lỗi upload nhạc lên MinIO: {}", e.getMessage());
-                throw new RuntimeException("Upload nhạc thất bại: " + e.getMessage());
+                log.error("Lỗi upload nhạc: {}", e.getMessage());
+                throw new RuntimeException("Upload failed");
             } finally {
                 if (file != null && file.exists()) {
-                    file.delete();
+                    boolean deleted = file.delete();
+                    if (!deleted) log.warn("Không thể xóa file tạm: {}", file.getAbsolutePath());
                 }
             }
         });

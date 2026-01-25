@@ -14,5 +14,4 @@ public class TramcamxucV2Application {
     public static void main(String[] args) {
         SpringApplication.run(TramcamxucV2Application.class, args);
     }
-
 }
