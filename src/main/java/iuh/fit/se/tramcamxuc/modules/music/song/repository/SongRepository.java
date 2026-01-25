@@ -7,9 +7,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,4 +26,10 @@ public interface SongRepository extends JpaRepository<Song, UUID> {
     @Transactional
     @Query("UPDATE Song s SET s.listeningCount = s.listeningCount + :count WHERE s.id = :id")
     void incrementListeningCount(UUID id, Long count);
+
+    @Query("SELECT s FROM Song s " +
+            "LEFT JOIN FETCH s.artist " +
+            "WHERE LOWER(s.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "OR LOWER(s.artist.name) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    List<Song> searchByKeyword(@Param("keyword") String keyword);
 }

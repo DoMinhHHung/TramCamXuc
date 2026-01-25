@@ -7,6 +7,7 @@ import iuh.fit.se.tramcamxuc.modules.music.song.entity.enums.SongStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface SongService {
@@ -14,6 +15,7 @@ public interface SongService {
     SongResponse updateSong(UUID songId, UpdateSongRequest request);
     SongResponse changeSongStatus(UUID songId, SongStatus newStatus);
 
+    List<SongResponse> searchSongs(String keyword);
     void incrementListeningCount(UUID songId);
 
     SongResponse getSongBySlug(String slug);
