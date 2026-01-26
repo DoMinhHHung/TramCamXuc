@@ -14,6 +14,7 @@ import org.springframework.util.FileSystemUtils;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -57,11 +58,24 @@ public class TranscodeWorker {
             log.info("Đang tải file gốc về...");
             File inputFile = minioService.downloadFile(song.getAudioUrl(), tempInDir);
 
+            try {
+                String mimeType = Files.probeContentType(inputFile.toPath());
+                Set<String> allowedMimes = Set.of("audio/mpeg", "audio/wav", "audio/flac", "audio/mp4", "audio/ogg", "application/octet-stream");
+
+                if (mimeType == null || !allowedMimes.contains(mimeType)) {
+                    log.warn("Phát hiện file đáng ngờ (Mime: {}). Xóa ngay lập tức: {}", mimeType, songId);
+                    inputFile.delete(); // Xóa file
+                    updateSongStatus(songId, null, SongStatus.TRANSCODE_FAILED);
+                    return;
+                }
+            } catch (Exception e) {
+                log.error("Lỗi khi kiểm tra file: {}", e.getMessage());
+                return;
+            }
             log.info("Đang chạy FFmpeg...");
             String outputFileName = "playlist.m3u8";
             File outputFile = new File(tempOutDir, outputFileName);
 
-            // SỬA: Thêm -vn để bỏ qua stream video (nếu có)
             ProcessBuilder pb = new ProcessBuilder(
                     "ffmpeg", "-i", inputFile.getAbsolutePath(),
                     "-c:a", "aac", "-b:a", "128k",

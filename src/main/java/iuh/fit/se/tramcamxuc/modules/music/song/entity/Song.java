@@ -47,6 +47,8 @@ public class Song extends BaseEntity {
     @Column(nullable = false)
     private SongStatus status;
 
+    private Long likeCount;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "artist_id", nullable = false)
     private Artist artist;
