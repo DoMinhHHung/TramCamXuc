@@ -1,7 +1,8 @@
 package iuh.fit.se.tramcamxuc.modules.music.artist.controller;
 
+import iuh.fit.se.tramcamxuc.common.exception.dto.ApiResponse;
 import iuh.fit.se.tramcamxuc.modules.music.artist.dto.request.CreateArtistRequest;
-import iuh.fit.se.tramcamxuc.modules.music.artist.entity.Artist;
+import iuh.fit.se.tramcamxuc.modules.music.artist.dto.response.ArtistResponse;
 import iuh.fit.se.tramcamxuc.modules.music.artist.service.ArtistService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,24 +20,24 @@ public class ArtistController {
 
     @PostMapping("/system")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Artist> createSystemArtist(@RequestBody @Valid CreateArtistRequest request) {
-        return ResponseEntity.ok(artistService.createSystemArtist(request));
+    public ResponseEntity<ApiResponse<ArtistResponse>> createSystemArtist(@RequestBody @Valid CreateArtistRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(artistService.createSystemArtist(request)));
     }
 
     @PostMapping("/register")
-    public ResponseEntity<Artist> registerAsArtist(@RequestBody @Valid CreateArtistRequest request) {
-        return ResponseEntity.ok(artistService.registerAsArtist(request));
+    public ResponseEntity<ApiResponse<ArtistResponse>> registerAsArtist(@RequestBody @Valid CreateArtistRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(artistService.registerAsArtist(request)));
     }
 
     @PostMapping("/{id}/follow")
-    public ResponseEntity<String> follow(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<String>> follow(@PathVariable UUID id) {
         artistService.followArtist(id);
-        return ResponseEntity.ok("Followed success");
+        return ResponseEntity.ok(ApiResponse.success("Followed success"));
     }
 
     @DeleteMapping("/{id}/follow")
-    public ResponseEntity<String> unfollow(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<String>> unfollow(@PathVariable UUID id) {
         artistService.unfollowArtist(id);
-        return ResponseEntity.ok("Unfollowed success");
+        return ResponseEntity.ok(ApiResponse.success("Unfollowed success"));
     }
 }

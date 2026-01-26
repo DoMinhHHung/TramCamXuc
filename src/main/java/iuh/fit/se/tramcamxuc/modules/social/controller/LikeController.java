@@ -1,5 +1,6 @@
 package iuh.fit.se.tramcamxuc.modules.social.controller;
 
+import iuh.fit.se.tramcamxuc.common.exception.dto.ApiResponse;
 import iuh.fit.se.tramcamxuc.modules.social.service.LikeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +17,7 @@ public class LikeController {
     private final LikeService likeService;
 
     @PostMapping("/song/{songId}/toggle")
-    public ResponseEntity<Map<String, Object>> toggleLike(@PathVariable UUID songId) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> toggleLike(@PathVariable UUID songId) {
         boolean isLiked = likeService.toggleLike(songId);
         Long totalLikes = likeService.countLikes(songId);
 
@@ -24,11 +25,11 @@ public class LikeController {
         response.put("liked", isLiked);
         response.put("total", totalLikes);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/song/{songId}/check")
-    public ResponseEntity<Map<String, Object>> checkLikeStatus(@PathVariable UUID songId) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> checkLikeStatus(@PathVariable UUID songId) {
         boolean isLiked = likeService.hasLiked(songId);
         Long totalLikes = likeService.countLikes(songId);
 
@@ -36,6 +37,6 @@ public class LikeController {
         response.put("liked", isLiked);
         response.put("total", totalLikes);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

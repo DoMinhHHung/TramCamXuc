@@ -3,6 +3,7 @@ package iuh.fit.se.tramcamxuc.modules.music.artist.service.impl;
 import iuh.fit.se.tramcamxuc.common.exception.AppException;
 import iuh.fit.se.tramcamxuc.common.exception.ResourceNotFoundException;
 import iuh.fit.se.tramcamxuc.modules.music.artist.dto.request.CreateArtistRequest;
+import iuh.fit.se.tramcamxuc.modules.music.artist.dto.response.ArtistResponse;
 import iuh.fit.se.tramcamxuc.modules.music.artist.entity.Artist;
 import iuh.fit.se.tramcamxuc.modules.music.artist.entity.ArtistFollow;
 import iuh.fit.se.tramcamxuc.modules.music.artist.entity.ArtistFollowId;
@@ -30,7 +31,7 @@ public class ArtistServiceImpl implements ArtistService {
 
     @Override
     @Transactional
-    public Artist createSystemArtist(CreateArtistRequest request) {
+    public ArtistResponse createSystemArtist(CreateArtistRequest request) {
         if (artistRepository.existsByName(request.getName())) {
             throw new AppException("This artist name already exists.");
         }
@@ -45,12 +46,13 @@ public class ArtistServiceImpl implements ArtistService {
                 .user(null)
                 .build();
 
-        return artistRepository.save(artist);
+        Artist savedArtist = artistRepository.save(artist);
+        return ArtistResponse.fromEntity(savedArtist);
     }
 
     @Override
     @Transactional
-    public Artist registerAsArtist(CreateArtistRequest request) {
+    public ArtistResponse registerAsArtist(CreateArtistRequest request) {
         User currentUser = userService.getCurrentUser();
 
         if (artistRepository.findByUserId(currentUser.getId()).isPresent()) {
@@ -67,7 +69,8 @@ public class ArtistServiceImpl implements ArtistService {
                 .user(currentUser)
                 .build();
 
-        return artistRepository.save(artist);
+        Artist savedArtist = artistRepository.save(artist);
+        return ArtistResponse.fromEntity(savedArtist);
     }
 
     @Override

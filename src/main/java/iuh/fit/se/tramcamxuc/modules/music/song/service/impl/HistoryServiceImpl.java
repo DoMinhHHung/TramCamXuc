@@ -13,6 +13,7 @@ import iuh.fit.se.tramcamxuc.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -24,6 +25,7 @@ public class HistoryServiceImpl implements HistoryService {
     private final UserService userService;
     private final SongRepository songRepository;
     private final SongService songService;
+    private final StringRedisTemplate redisTemplate;
 
     @Override
     public void logHistory(LogHistoryRequest request) {
@@ -43,6 +45,10 @@ public class HistoryServiceImpl implements HistoryService {
                 .listenedAt(LocalDateTime.now())
                 .listenedSeconds(request.getListenedSeconds())
                 .build();
+
+        String weekKey = "trending:week:" + java.time.LocalDate.now().get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+        redisTemplate.opsForZSet().incrementScore(weekKey, request.getSongId().toString(), 1);
+        redisTemplate.expire(weekKey, java.time.Duration.ofDays(14));
 
         historyRepository.save(history);
         songService.incrementListeningCount(song.getId());

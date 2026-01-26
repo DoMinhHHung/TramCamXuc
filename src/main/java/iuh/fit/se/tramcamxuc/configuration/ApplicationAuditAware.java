@@ -1,5 +1,6 @@
 package iuh.fit.se.tramcamxuc.configuration;
 
+import iuh.fit.se.tramcamxuc.modules.auth.service.CustomUserDetails;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
 import iuh.fit.se.tramcamxuc.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,10 +12,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.util.Optional;
 import java.util.UUID;
 
-@RequiredArgsConstructor
 public class ApplicationAuditAware implements AuditorAware<UUID> {
 
-    private final UserRepository userRepository;
 
     @Override
     public Optional<UUID> getCurrentAuditor() {
@@ -26,9 +25,12 @@ public class ApplicationAuditAware implements AuditorAware<UUID> {
             return Optional.empty();
         }
 
-        String email = authentication.getName();
+        Object principal = authentication.getPrincipal();
 
-        //muốn tối ưu thì lưu ID vào trong Token hoặc CustomUserDetails ngay từ đầu
-        return userRepository.findByEmail(email).map(User::getId);
+        if (principal instanceof CustomUserDetails) {
+            return Optional.of(((CustomUserDetails) principal).getId());
+        }
+
+        return Optional.empty();
     }
 }

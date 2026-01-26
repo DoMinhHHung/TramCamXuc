@@ -4,11 +4,17 @@ import iuh.fit.se.tramcamxuc.common.exception.AppException;
 import iuh.fit.se.tramcamxuc.common.exception.ResourceNotFoundException;
 import iuh.fit.se.tramcamxuc.common.service.CloudinaryService;
 import iuh.fit.se.tramcamxuc.common.service.EmailService;
+import iuh.fit.se.tramcamxuc.modules.music.artist.repository.ArtistFollowRepository;
+import iuh.fit.se.tramcamxuc.modules.music.artist.repository.ArtistRepository;
 import iuh.fit.se.tramcamxuc.modules.music.genre.entity.Genre;
 import iuh.fit.se.tramcamxuc.modules.music.genre.repository.GenreRepository;
+import iuh.fit.se.tramcamxuc.modules.music.playlist.dto.response.PlaylistResponse;
+import iuh.fit.se.tramcamxuc.modules.music.playlist.entity.Playlist;
+import iuh.fit.se.tramcamxuc.modules.music.playlist.repository.PlaylistRepository;
 import iuh.fit.se.tramcamxuc.modules.user.dto.request.ChangePasswordRequest;
 import iuh.fit.se.tramcamxuc.modules.user.dto.request.OnboardingGenreRequest;
 import iuh.fit.se.tramcamxuc.modules.user.dto.request.UpdateProfileRequest;
+import iuh.fit.se.tramcamxuc.modules.user.dto.response.PublicProfileResponse;
 import iuh.fit.se.tramcamxuc.modules.user.dto.response.UserProfileResponse;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
 import iuh.fit.se.tramcamxuc.modules.user.repository.UserRepository;
@@ -26,6 +32,7 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -38,6 +45,9 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
     private final EmailService emailService;
+    private final PlaylistRepository playlistRepository;
+    private final ArtistRepository artistRepository;
+    private final ArtistFollowRepository artistFollowRepository;
     private static final SecureRandom secureRandom = new SecureRandom();
 
     @Override
@@ -52,6 +62,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUserProfile() {
         return UserProfileResponse.fromEntity(getCurrentUser());
     }
@@ -133,5 +144,37 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
 
         redisTemplate.delete(key);
+    }
+
+    @Override
+    public PublicProfileResponse getPublicProfile(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        List<Playlist> publicPlaylists = playlistRepository.findByUserIdAndIsPublicTrue(userId);
+
+        var artistOpt = artistRepository.findByUserId(userId);
+        int followerCount = 0;
+        String bio = null;
+        boolean isVerified = false;
+
+        if (artistOpt.isPresent()) {
+            var artist = artistOpt.get();
+            followerCount = (int) artistFollowRepository.countByArtistId(artist.getId());
+            bio = artist.getBio();
+            isVerified = artist.isVerified();
+        }
+
+        return PublicProfileResponse.builder()
+                .id(user.getId().toString())
+                .name(user.getFullName())
+                .avatar(user.getAvatarUrl())
+                .bio(bio)
+                .isVerified(isVerified)
+                .followerCount(followerCount)
+                .publicPlaylists(publicPlaylists.stream()
+                        .map(PlaylistResponse::fromEntity)
+                        .toList())
+                .build();
     }
 }

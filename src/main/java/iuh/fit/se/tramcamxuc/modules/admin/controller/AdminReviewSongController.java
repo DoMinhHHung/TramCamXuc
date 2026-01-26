@@ -1,11 +1,10 @@
 package iuh.fit.se.tramcamxuc.modules.admin.controller;
 
+import iuh.fit.se.tramcamxuc.common.exception.dto.ApiResponse;
 import iuh.fit.se.tramcamxuc.modules.music.song.dto.response.SongResponse;
-import iuh.fit.se.tramcamxuc.modules.music.song.entity.Song;
-import iuh.fit.se.tramcamxuc.modules.music.song.entity.enums.SongStatus;
-import iuh.fit.se.tramcamxuc.modules.music.song.repository.SongRepository;
 import iuh.fit.se.tramcamxuc.modules.music.song.service.SongService;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -24,21 +23,21 @@ public class AdminReviewSongController {
     private final SongService songService;
 
     @GetMapping("/pending")
-    public ResponseEntity<Page<SongResponse>> getPendingSongs(
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable
+    public ResponseEntity<ApiResponse<Page<SongResponse>>> getPendingSongs(
+            @ParameterObject @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable
     ) {
-        return ResponseEntity.ok(songService.getPendingSongs(pageable));
+        return ResponseEntity.ok(ApiResponse.success(songService.getPendingSongs(pageable)));
     }
 
     @PostMapping("/{id}/approve")
-    public ResponseEntity<String> approveSong(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<String>> approveSong(@PathVariable UUID id) {
         songService.approveSong(id);
-        return ResponseEntity.ok("Approved the song.");
+        return ResponseEntity.ok(ApiResponse.success("Approved the song."));
     }
 
     @PostMapping("/{id}/reject")
-    public ResponseEntity<String> rejectSong(@PathVariable UUID id, @RequestParam String reason) {
+    public ResponseEntity<ApiResponse<String>> rejectSong(@PathVariable UUID id, @RequestParam String reason) {
         songService.rejectSong(id, reason);
-        return ResponseEntity.ok("Rejected the song.");
+        return ResponseEntity.ok(ApiResponse.success("Rejected the song."));
     }
 }
