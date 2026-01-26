@@ -64,6 +64,12 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "x-no-retry"));
         configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setAllowedOrigins(List.of(
+                "https://phazelsound.oopsgolden.id.vn", // Domain thật
+                "http://localhost:3000",                // React thường
+                "http://localhost:5173",                // Vite (Mày đang dùng cái này chắc luôn)
+                "http://localhost:8080"                 // Cho chính nó gọi nó (Swagger)
+        ));
         configuration.setAllowCredentials(false);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -87,8 +93,4 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
 }
