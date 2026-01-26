@@ -20,6 +20,8 @@ public interface GenreRepository extends JpaRepository<Genre, UUID> {
     boolean hasSongs(UUID genreId);
 
     @Query("SELECT new iuh.fit.se.tramcamxuc.modules.admin.dto.ChartData(g.name, COUNT(s)) " +
-            "FROM Genre g LEFT JOIN g.songs s GROUP BY g.id, g.name")
+            "FROM Song s " +
+            "JOIN s.genres g " +
+            "GROUP BY g.id, g.name")
     List<ChartData> getGenreSongCount();
 }
