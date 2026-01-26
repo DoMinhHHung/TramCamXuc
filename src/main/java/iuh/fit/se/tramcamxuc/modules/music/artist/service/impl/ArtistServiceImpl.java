@@ -11,9 +11,16 @@ import iuh.fit.se.tramcamxuc.modules.music.artist.entity.enums.ArtistStatus;
 import iuh.fit.se.tramcamxuc.modules.music.artist.repository.ArtistFollowRepository;
 import iuh.fit.se.tramcamxuc.modules.music.artist.repository.ArtistRepository;
 import iuh.fit.se.tramcamxuc.modules.music.artist.service.ArtistService;
+import iuh.fit.se.tramcamxuc.modules.music.song.dto.response.SongResponse;
+import iuh.fit.se.tramcamxuc.modules.music.song.entity.Song;
+import iuh.fit.se.tramcamxuc.modules.music.song.entity.enums.SongStatus;
+import iuh.fit.se.tramcamxuc.modules.music.song.repository.SongRepository;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
 import iuh.fit.se.tramcamxuc.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +35,7 @@ public class ArtistServiceImpl implements ArtistService {
     private final ArtistRepository artistRepository;
     private final ArtistFollowRepository artistFollowRepository;
     private final UserService userService;
+    private final SongRepository songRepository;
 
     @Override
     @Transactional
@@ -111,5 +119,21 @@ public class ArtistServiceImpl implements ArtistService {
         String normalized = Normalizer.normalize(nowhitespace, Normalizer.Form.NFD);
         String slug = Pattern.compile("[^\\w-]").matcher(normalized).replaceAll("");
         return slug.toLowerCase(Locale.ENGLISH);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<SongResponse> getArtistSongs(UUID artistId, int page, int size) {
+        if (!artistRepository.existsById(artistId)) {
+            throw new ResourceNotFoundException("Artist not found");
+        }
+
+        Page<Song> songs = songRepository.findByArtistIdAndStatus(
+                artistId,
+                SongStatus.PUBLIC,
+                PageRequest.of(page, size, Sort.by("createdAt").descending())
+        );
+
+        return songs.map(SongResponse::fromEntity);
     }
 }

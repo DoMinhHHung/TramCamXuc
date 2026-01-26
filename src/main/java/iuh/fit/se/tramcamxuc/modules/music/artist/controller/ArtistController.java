@@ -4,8 +4,10 @@ import iuh.fit.se.tramcamxuc.common.exception.dto.ApiResponse;
 import iuh.fit.se.tramcamxuc.modules.music.artist.dto.request.CreateArtistRequest;
 import iuh.fit.se.tramcamxuc.modules.music.artist.dto.response.ArtistResponse;
 import iuh.fit.se.tramcamxuc.modules.music.artist.service.ArtistService;
+import iuh.fit.se.tramcamxuc.modules.music.song.dto.response.SongResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -39,5 +41,16 @@ public class ArtistController {
     public ResponseEntity<ApiResponse<String>> unfollow(@PathVariable UUID id) {
         artistService.unfollowArtist(id);
         return ResponseEntity.ok(ApiResponse.success("Unfollowed success"));
+    }
+
+    @GetMapping("/{id}/songs")
+    public ResponseEntity<ApiResponse<Page<SongResponse>>> getArtistSongs(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                artistService.getArtistSongs(id, page, size)
+        ));
     }
 }
