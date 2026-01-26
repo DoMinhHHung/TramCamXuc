@@ -3,6 +3,7 @@ package iuh.fit.se.tramcamxuc.modules.user.controller;
 import iuh.fit.se.tramcamxuc.common.annotation.RateLimit;
 import iuh.fit.se.tramcamxuc.common.exception.dto.ApiResponse;
 import iuh.fit.se.tramcamxuc.modules.user.dto.request.*;
+import iuh.fit.se.tramcamxuc.modules.user.dto.response.PublicProfileResponse;
 import iuh.fit.se.tramcamxuc.modules.user.dto.response.UserProfileResponse;
 import iuh.fit.se.tramcamxuc.modules.user.service.UserService;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -47,6 +49,11 @@ public class UserController {
                     }
                     return ResponseEntity.ok(ApiResponse.success(url));
                 });
+    }
+
+    @GetMapping("/{id}/profile")
+    public ResponseEntity<ApiResponse<PublicProfileResponse>> getPublicProfile(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(userService.getPublicProfile(id)));
     }
 
     @PostMapping("/onboarding/genres")

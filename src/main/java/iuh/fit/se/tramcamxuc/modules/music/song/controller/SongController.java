@@ -46,8 +46,23 @@ public class SongController {
         return ResponseEntity.ok(ApiResponse.success(songService.getSongBySlug(slug)));
     }
 
-    @GetMapping("/search")
-    public ResponseEntity<ApiResponse<List<SongResponse>>> searchSongs(@RequestParam String keyword) {
+    //    @GetMapping("/search")
+//    public ResponseEntity<ApiResponse<List<SongResponse>>> searchSongs(@RequestParam String keyword) {
+//        return ResponseEntity.ok(ApiResponse.success(songService.searchSongs(keyword)));
+//    }
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<SongResponse>>> search(@RequestParam String keyword) {
         return ResponseEntity.ok(ApiResponse.success(songService.searchSongs(keyword)));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<List<String>>> getHistory() {
+        return ResponseEntity.ok(ApiResponse.success(songService.getSearchHistory()));
+    }
+
+    @DeleteMapping("/history")
+    public ResponseEntity<ApiResponse<String>> deleteHistoryItem(@RequestParam String keyword) {
+        songService.deleteSearchHistory(keyword);
+        return ResponseEntity.ok(ApiResponse.success("Deleted"));
     }
 }

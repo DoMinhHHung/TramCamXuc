@@ -10,7 +10,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.FileSystemUtils; // Class này giúp xóa folder đệ quy
+import org.springframework.util.FileSystemUtils;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -26,22 +26,24 @@ public class TranscodeWorker {
     private final SongRepository songRepository;
     private final MinioService minioService;
 
-    // Key Queue trong Redis
     private static final String QUEUE_KEY = "music:transcode:queue";
+    private static final String DLQ_KEY = "music:transcode:dead";
+    private static final String RETRY_KEY_PREFIX = "music:transcode:retry:";
+    private static final int MAX_RETRY = 3;
 
-    @Scheduled(fixedDelay = 5000) // Chạy mỗi 5 giây
+    @Scheduled(fixedDelay = 5000)
     public void processTranscode() {
-        // 1. Lấy job từ Redis
         String songIdStr = redisTemplate.opsForList().rightPop(QUEUE_KEY);
-        if (songIdStr == null) return; // Queue rỗng thì nghỉ
+        if (songIdStr == null) return;
 
         log.info(">>> [WORKER] Bắt đầu Transcode bài hát ID: {}", songIdStr);
 
         File tempInDir = null;
         File tempOutDir = null;
+        UUID songId = null;
 
         try {
-            UUID songId = UUID.fromString(songIdStr);
+            songId = UUID.fromString(songIdStr);
             Song song = songRepository.findById(songId).orElse(null);
 
             if (song == null) {
@@ -49,72 +51,88 @@ public class TranscodeWorker {
                 return;
             }
 
-            // 2. Tạo thư mục tạm trên ổ cứng Server
             tempInDir = Files.createTempDirectory("transcode_in_" + songId).toFile();
             tempOutDir = Files.createTempDirectory("transcode_out_" + songId).toFile();
 
-            // 3. Tải file MP3 gốc từ MinIO về tempInDir
             log.info("Đang tải file gốc về...");
             File inputFile = minioService.downloadFile(song.getAudioUrl(), tempInDir);
 
-            // 4. Chạy FFmpeg để convert sang HLS
             log.info("Đang chạy FFmpeg...");
             String outputFileName = "playlist.m3u8";
             File outputFile = new File(tempOutDir, outputFileName);
 
-            // Lệnh FFmpeg: Chuyển đổi sang HLS, mỗi segment 10s
+            // SỬA: Thêm -vn để bỏ qua stream video (nếu có)
             ProcessBuilder pb = new ProcessBuilder(
                     "ffmpeg", "-i", inputFile.getAbsolutePath(),
-                    "-c:a", "aac", "-b:a", "128k", // Audio codec AAC, bitrate 128k
-                    "-hls_time", "10",            // Mỗi đoạn dài 10s
-                    "-hls_list_size", "0",        // Giữ lại tất cả các đoạn trong playlist
+                    "-c:a", "aac", "-b:a", "128k",
+                    "-vn",
+                    "-hls_time", "10",
+                    "-hls_list_size", "0",
                     "-f", "hls",
                     outputFile.getAbsolutePath()
             );
 
-            pb.redirectErrorStream(true); // Gộp log lỗi để debug nếu cần
+            pb.redirectErrorStream(true);
             Process process = pb.start();
 
-            // Đợi tối đa 5 phút cho 1 bài, tránh treo server
+            try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    log.debug("[FFmpeg] {}", line);
+                }
+            }
+
             boolean finished = process.waitFor(5, TimeUnit.MINUTES);
 
             if (!finished || process.exitValue() != 0) {
-                throw new RuntimeException("FFmpeg lỗi hoặc timeout!");
+                throw new RuntimeException("FFmpeg lỗi hoặc timeout (Exit code: " + process.exitValue() + ")");
             }
 
-            // 5. Upload folder kết quả (HLS) lên MinIO
             log.info("FFmpeg xong. Đang upload HLS lên MinIO...");
-            String remotePrefix = "hls/" + songId; // Folder trên MinIO
+            String remotePrefix = "hls/" + songId;
             String hlsUrl = minioService.uploadFolder(tempOutDir, remotePrefix);
 
             if (hlsUrl == null) throw new RuntimeException("Lỗi không lấy được URL playlist");
 
-            // 6. Cập nhật vào DB: Đổi link mp3 thành link m3u8 và set Public
-            updateSongStatus(songId, hlsUrl);
+            updateSongStatus(songId, hlsUrl, SongStatus.PENDING_APPROVAL);
+
+            redisTemplate.delete(RETRY_KEY_PREFIX + songIdStr);
 
             log.info(">>> [SUCCESS] Transcode xong bài: {}", songId);
 
         } catch (Exception e) {
             log.error(">>> [ERROR] Lỗi Transcode bài {}: {}", songIdStr, e.getMessage());
-            // TODO: Ở đây có thể push lại vào Redis (Dead Letter Queue) để retry sau
+            handleFailure(songIdStr, e.getMessage());
         } finally {
-            // 7. QUAN TRỌNG: Dọn dẹp rác trên ổ cứng
-            // FileSystemUtils.deleteRecursively xóa cả file con lẫn thư mục cha
-            if (tempInDir != null && tempInDir.exists()) {
-                FileSystemUtils.deleteRecursively(tempInDir);
+            if (tempInDir != null && tempInDir.exists()) FileSystemUtils.deleteRecursively(tempInDir);
+            if (tempOutDir != null && tempOutDir.exists()) FileSystemUtils.deleteRecursively(tempOutDir);
+        }
+    }
+
+    private void handleFailure(String songIdStr, String errorMessage) {
+        String retryKey = RETRY_KEY_PREFIX + songIdStr;
+        Long currentRetry = redisTemplate.opsForValue().increment(retryKey);
+
+        if (currentRetry != null && currentRetry <= MAX_RETRY) {
+            log.warn("Retry lần {}/{} cho bài {}", currentRetry, MAX_RETRY, songIdStr);
+            redisTemplate.opsForList().leftPush(QUEUE_KEY, songIdStr);
+        } else {
+            log.error("Đã hết lượt Retry. Đẩy bài {} vào Dead Letter Queue.", songIdStr);
+            redisTemplate.opsForList().leftPush(DLQ_KEY, songIdStr);
+            redisTemplate.delete(retryKey);
+            try {
+                updateSongStatus(UUID.fromString(songIdStr), null, SongStatus.TRANSCODE_FAILED);
+            } catch (Exception ex) {
+                log.error("Lỗi update status failed", ex);
             }
-            if (tempOutDir != null && tempOutDir.exists()) {
-                FileSystemUtils.deleteRecursively(tempOutDir);
-            }
-            log.info("Đã dọn dẹp file tạm.");
         }
     }
 
     @Transactional
-    public void updateSongStatus(UUID songId, String hlsUrl) {
+    public void updateSongStatus(UUID songId, String hlsUrl, SongStatus status) {
         Song song = songRepository.findById(songId).orElseThrow();
-        song.setAudioUrl(hlsUrl);      // Lưu link .m3u8 vào
-        song.setStatus(SongStatus.PUBLIC); // Đổi trạng thái để User thấy bài này
+        if (hlsUrl != null) song.setAudioUrl(hlsUrl);
+        song.setStatus(status);
         songRepository.save(song);
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -21,14 +22,17 @@ public class MinioService {
     @Value("${minio.bucket.music}")
     private String bucketName;
 
-    @Value("${minio.url}")
-    private String minioUrl;
+    @Value("${minio.public-url}")
+    private String publicUrl;
+
+    @Value("${minio.endpoint}")
+    private String internalEndpoint;
 
     @Async
     public CompletableFuture<String> uploadMusicFileAsync(File file, String contentType, String originalFilename) {
         return CompletableFuture.supplyAsync(() -> {
             try (FileInputStream inputStream = new FileInputStream(file)) {
-                String fileName = java.util.UUID.randomUUID() + "_" + originalFilename.replaceAll("\\s+", "_");
+                String fileName = UUID.randomUUID() + "_" + originalFilename.replaceAll("\\s+", "_");
 
                 minioClient.putObject(
                         PutObjectArgs.builder()
@@ -39,7 +43,7 @@ public class MinioService {
                                 .build()
                 );
 
-                String fileUrl = String.format("%s/%s/%s", minioUrl, bucketName, fileName);
+                String fileUrl = String.format("%s/%s/%s", publicUrl, bucketName, fileName);
                 log.info("Upload nhạc thành công: {}", fileUrl);
                 return fileUrl;
 
@@ -106,7 +110,7 @@ public class MinioService {
                             .build()
             );
 
-            return String.format("%s/%s/%s", minioUrl, bucketName, objectName);
+            return String.format("%s/%s/%s", publicUrl, bucketName, objectName);
         } catch (Exception e) {
             log.error("Lỗi upload file local lên MinIO: {}", e.getMessage());
             throw new RuntimeException("Upload file HLS thất bại");
@@ -141,10 +145,19 @@ public class MinioService {
     }
 
     private String extractObjectNameFromUrl(String url) {
-        String prefix = minioUrl + "/" + bucketName + "/";
-        if (url.startsWith(prefix)) {
-            return url.substring(prefix.length());
+        // Trường hợp 1: URL Public
+        String publicPrefix = publicUrl + "/" + bucketName + "/";
+        if (url.startsWith(publicPrefix)) {
+            return url.substring(publicPrefix.length());
         }
+
+        // Trường hợp 2: URL Nội bộ (cho các file cũ nếu có)
+        String internalPrefix = internalEndpoint + "/" + bucketName + "/";
+        if (url.startsWith(internalPrefix)) {
+            return url.substring(internalPrefix.length());
+        }
+
+        // Fallback: Lấy phần cuối cùng sau dấu /
         return url.substring(url.lastIndexOf("/") + 1);
     }
 }

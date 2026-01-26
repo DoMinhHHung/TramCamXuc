@@ -18,6 +18,6 @@ public class JpaAuditingConfig {
 
     @Bean
     public AuditorAware<UUID> auditorProvider() {
-        return new ApplicationAuditAware(userRepository);
+        return new ApplicationAuditAware();
     }
 }

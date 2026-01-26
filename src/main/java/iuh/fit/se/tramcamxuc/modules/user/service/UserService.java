@@ -5,6 +5,7 @@ import iuh.fit.se.tramcamxuc.modules.user.dto.response.*;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public interface UserService {
@@ -15,5 +16,7 @@ public interface UserService {
     UserProfileResponse setFavoriteGenres(OnboardingGenreRequest request);
     void requestChangePasswordOtp();
     void changePasswordWithOtp(ChangePasswordRequest request);
+
+    PublicProfileResponse getPublicProfile(UUID userId);
 
 }

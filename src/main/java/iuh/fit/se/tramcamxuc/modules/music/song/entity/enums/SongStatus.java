@@ -7,6 +7,7 @@ public enum SongStatus {
     PRIVATE,
     COPYRIGHT_VIOLATION,
     DELETED,
+    TRANSCODE_FAILED,
 //    Admin
     PENDING_APPROVAL,
     REJECTED

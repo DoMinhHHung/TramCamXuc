@@ -3,6 +3,7 @@ package iuh.fit.se.tramcamxuc.modules.music.song.service.impl;
 import iuh.fit.se.tramcamxuc.common.exception.AppException;
 import iuh.fit.se.tramcamxuc.common.exception.ResourceNotFoundException;
 import iuh.fit.se.tramcamxuc.common.service.CloudinaryService;
+import iuh.fit.se.tramcamxuc.common.service.EmailService;
 import iuh.fit.se.tramcamxuc.common.service.MinioService;
 import iuh.fit.se.tramcamxuc.modules.music.artist.entity.Artist;
 import iuh.fit.se.tramcamxuc.modules.music.artist.repository.ArtistRepository;
@@ -16,6 +17,7 @@ import iuh.fit.se.tramcamxuc.modules.music.song.entity.enums.SongStatus;
 import iuh.fit.se.tramcamxuc.modules.music.song.repository.SongRepository;
 import iuh.fit.se.tramcamxuc.modules.music.song.service.SongService;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
+import iuh.fit.se.tramcamxuc.modules.user.repository.UserRepository;
 import iuh.fit.se.tramcamxuc.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,7 +49,9 @@ public class SongServiceImpl implements SongService {
     private final MinioService minioService;
     private final CloudinaryService cloudinaryService;
     private final UserService userService;
+    private final EmailService emailService;
     private final SongRepository songRepository;
+    private final UserRepository userRepository;
     private final ArtistRepository artistRepository;
     private final GenreRepository genreRepository;
     private final StringRedisTemplate redisTemplate;
@@ -107,6 +111,9 @@ public class SongServiceImpl implements SongService {
                 .build();
 
         Song savedSong = songRepository.save(song);
+        String QUEUE_KEY = "music:transcode:queue";
+        redisTemplate.opsForList().leftPush(QUEUE_KEY, savedSong.getId().toString());
+        log.info("Đã đẩy bài hát {} vào hàng đợi transcode", savedSong.getId());
         return SongResponse.fromEntity(savedSong);
     }
 
@@ -181,17 +188,49 @@ public class SongServiceImpl implements SongService {
         return SongResponse.fromEntity(savedSong);
     }
 
+    //    @Override
+//    public List<SongResponse> searchSongs(String keyword) {
+//        if (keyword == null || keyword.trim().isEmpty()) {
+//            return List.of();
+//        }
+//
+//        List<Song> songs = songRepository.searchByKeyword(keyword.trim());
+//
+//        return songs.stream()
+//                .map(SongResponse::fromEntity)
+//                .collect(Collectors.toList());
+//    }
     @Override
     public List<SongResponse> searchSongs(String keyword) {
-        if (keyword == null || keyword.trim().isEmpty()) {
-            return List.of();
+        try {
+            User currentUser = userService.getCurrentUser();
+            String historyKey = "search:history:" + currentUser.getId();
+
+            redisTemplate.opsForList().remove(historyKey, 0, keyword);
+            redisTemplate.opsForList().leftPush(historyKey, keyword);
+            redisTemplate.opsForList().trim(historyKey, 0, 9);
+        } catch (Exception e) {
+            System.err.println("Error saving search history: " + e.getMessage());
         }
 
-        List<Song> songs = songRepository.searchByKeyword(keyword.trim());
-
-        return songs.stream()
+        // 2. Gọi logic search cũ từ SongService
+        return songRepository.searchByKeyword(keyword.trim()).stream()
                 .map(SongResponse::fromEntity)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<String> getSearchHistory() {
+        User currentUser = userService.getCurrentUser();
+        String historyKey = "search:history:" + currentUser.getId();
+        return redisTemplate.opsForList().range(historyKey, 0, -1);
+    }
+
+    @Override
+    public void deleteSearchHistory(String keyword) {
+        User currentUser = userService.getCurrentUser();
+        String historyKey = "search:history:" + currentUser.getId();
+        redisTemplate.opsForList().remove(historyKey, 0, keyword);
     }
 
     @Override
@@ -230,6 +269,27 @@ public class SongServiceImpl implements SongService {
         song.setVerified(true);
         songRepository.save(song);
 
+        try {
+            User uploader = userRepository.findById(UUID.fromString(String.valueOf(song.getCreatedBy())))
+                    .orElse(null);
+
+            if (uploader != null && uploader.getEmail() != null) {
+                String songLink = "https://phazelsound.oopsgolden.id.vn/song/" + song.getSlug();
+
+                emailService.sendSongStatusEmail(
+                        uploader.getEmail(),
+                        uploader.getFullName(),
+                        song.getTitle(),
+                        "APPROVED",
+                        song.getSlug()
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Không gửi được mail approve: {}", e.getMessage());
+        }
+
+        log.info("Admin approved song: {}", song.getTitle());
+
         log.info("Admin approved song: {}", song.getTitle());
     }
 
@@ -241,10 +301,27 @@ public class SongServiceImpl implements SongService {
 
         song.setStatus(SongStatus.REJECTED);
 
-        // TODO: Gửi email thông báo lý do cho Artist (Làm sau)
         log.info("Rejected song {}. Reason: {}", song.getTitle(), reason);
 
         songRepository.save(song);
+        try {
+            User uploader = userRepository.findById(UUID.fromString(String.valueOf(song.getCreatedBy())))
+                    .orElse(null);
+
+            if (uploader != null && uploader.getEmail() != null) {
+                emailService.sendSongStatusEmail(
+                        uploader.getEmail(),
+                        uploader.getFullName(),
+                        song.getTitle(),
+                        "REJECTED",
+                        reason
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Không gửi được mail reject: {}", e.getMessage());
+        }
+
+        log.info("Rejected song {}. Reason: {}", song.getTitle(), reason);
     }
 
     //Helper methods

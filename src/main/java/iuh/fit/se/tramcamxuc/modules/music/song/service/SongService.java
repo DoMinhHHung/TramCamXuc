@@ -16,6 +16,11 @@ public interface SongService {
     SongResponse changeSongStatus(UUID songId, SongStatus newStatus);
 
     List<SongResponse> searchSongs(String keyword);
+
+    List<String> getSearchHistory();
+
+    void deleteSearchHistory(String keyword);
+
     void incrementListeningCount(UUID songId);
 
     SongResponse getSongBySlug(String slug);

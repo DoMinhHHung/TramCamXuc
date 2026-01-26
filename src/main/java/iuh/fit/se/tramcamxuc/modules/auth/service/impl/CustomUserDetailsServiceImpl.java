@@ -1,8 +1,8 @@
 package iuh.fit.se.tramcamxuc.modules.auth.service.impl;
 
+import iuh.fit.se.tramcamxuc.modules.auth.service.CustomUserDetails;
 import iuh.fit.se.tramcamxuc.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -19,10 +19,7 @@ public class CustomUserDetailsServiceImpl implements UserDetailsService {
         var user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        return User
-                .withUsername(user.getEmail())
-                .password(user.getPassword())
-                .roles(user.getRole().name())
-                .build();
+        return new CustomUserDetails(user);
     }
+
 }

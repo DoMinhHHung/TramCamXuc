@@ -4,6 +4,7 @@ import iuh.fit.se.tramcamxuc.common.exception.dto.ApiResponse;
 import iuh.fit.se.tramcamxuc.modules.music.song.dto.response.SongResponse;
 import iuh.fit.se.tramcamxuc.modules.music.song.service.SongService;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -23,7 +24,7 @@ public class AdminReviewSongController {
 
     @GetMapping("/pending")
     public ResponseEntity<ApiResponse<Page<SongResponse>>> getPendingSongs(
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable
+            @ParameterObject @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable
     ) {
         return ResponseEntity.ok(ApiResponse.success(songService.getPendingSongs(pageable)));
     }

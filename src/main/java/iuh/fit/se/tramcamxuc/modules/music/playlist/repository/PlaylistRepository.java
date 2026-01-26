@@ -15,4 +15,6 @@ public interface PlaylistRepository extends JpaRepository<Playlist, UUID> {
     Optional<Playlist> findBySlug(String slug);
     List<Playlist> findByUserId(UUID userId);
     boolean existsBySlug(String slug);
+
+    List<Playlist> findByUserIdAndIsPublicTrue(UUID userId);
 }
