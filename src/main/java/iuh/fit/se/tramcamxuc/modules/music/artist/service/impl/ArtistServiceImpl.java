@@ -15,6 +15,8 @@ import iuh.fit.se.tramcamxuc.modules.music.song.dto.response.SongResponse;
 import iuh.fit.se.tramcamxuc.modules.music.song.entity.Song;
 import iuh.fit.se.tramcamxuc.modules.music.song.entity.enums.SongStatus;
 import iuh.fit.se.tramcamxuc.modules.music.song.repository.SongRepository;
+import iuh.fit.se.tramcamxuc.modules.subscription.entity.UserSubscription;
+import iuh.fit.se.tramcamxuc.modules.subscription.repository.UserSubscriptionRepository;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
 import iuh.fit.se.tramcamxuc.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -36,6 +39,7 @@ public class ArtistServiceImpl implements ArtistService {
     private final ArtistFollowRepository artistFollowRepository;
     private final UserService userService;
     private final SongRepository songRepository;
+    private final UserSubscriptionRepository userSubscriptionRepository;
 
     @Override
     @Transactional
@@ -65,6 +69,17 @@ public class ArtistServiceImpl implements ArtistService {
 
         if (artistRepository.findByUserId(currentUser.getId()).isPresent()) {
             throw new AppException("This account is already registered as an artist.");
+        }
+
+        UserSubscription activeSub = userSubscriptionRepository.findActiveSubscriptionByUserId(currentUser.getId())
+                .orElseThrow(() -> new AppException("You need an active subscription to register as an artist."));
+
+        Map<String, Object> features = activeSub.getPlan().getFeatures();
+
+        boolean canRegister = (boolean) features.getOrDefault("can_register_artist", false);
+
+        if (!canRegister) {
+            throw new AppException("Your subscription plan does not allow artist registration.");
         }
 
         Artist artist = Artist.builder()

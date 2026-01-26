@@ -50,4 +50,7 @@ public interface SongRepository extends JpaRepository<Song, UUID> {
 
     @EntityGraph(attributePaths = {"artist", "genres"})
     Page<Song> findByArtistIdAndStatus(UUID artistId, SongStatus status, Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(s.listeningCount), 0) FROM Song s")
+    Long getTotalListeningCount();
 }
