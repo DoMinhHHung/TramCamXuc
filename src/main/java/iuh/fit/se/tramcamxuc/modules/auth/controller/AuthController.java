@@ -75,4 +75,9 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> socialLogin(@Valid @RequestBody SocialLoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success(authService.loginSocial(request)));
     }
+
+    @PostMapping("/link-social")
+    public ResponseEntity<ApiResponse<AuthResponse>> linkSocialAccount(@Valid @RequestBody LinkSocialAccountRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(authService.linkSocialAccount(request)));
+    }
 }
