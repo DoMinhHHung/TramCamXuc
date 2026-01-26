@@ -4,11 +4,8 @@ import iuh.fit.se.tramcamxuc.common.exception.AppException;
 import iuh.fit.se.tramcamxuc.common.exception.ResourceNotFoundException;
 import iuh.fit.se.tramcamxuc.common.service.EmailService;
 import iuh.fit.se.tramcamxuc.common.service.JwtService;
-import iuh.fit.se.tramcamxuc.modules.auth.dto.request.RegisterRequest;
-import iuh.fit.se.tramcamxuc.modules.auth.dto.request.ResetPasswordRequest;
-import iuh.fit.se.tramcamxuc.modules.auth.dto.request.SocialLoginRequest;
+import iuh.fit.se.tramcamxuc.modules.auth.dto.request.*;
 import iuh.fit.se.tramcamxuc.modules.auth.dto.response.AuthResponse;
-import iuh.fit.se.tramcamxuc.modules.auth.dto.request.LoginRequest;
 import iuh.fit.se.tramcamxuc.modules.auth.entity.RefreshToken;
 import iuh.fit.se.tramcamxuc.modules.auth.repository.RefreshTokenRepository;
 import iuh.fit.se.tramcamxuc.modules.auth.service.AuthService;
@@ -249,6 +246,57 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    @Override
+    public AuthResponse linkSocialAccount(LinkSocialAccountRequest request) {
+        // 1. Xác thực token Social để lấy email chuẩn (tránh client gửi email fake)
+        String email;
+        String name;
+        String avatarUrl;
+        String providerId;
+
+        if (request.getProvider() == AuthProvider.GOOGLE) {
+            Map<String, Object> googleInfo = verifyGoogleToken(request.getToken());
+            email = (String) googleInfo.get("email");
+            name = (String) googleInfo.get("name");
+            avatarUrl = (String) googleInfo.get("picture");
+            providerId = (String) googleInfo.get("sub");
+        } else if (request.getProvider() == AuthProvider.FACEBOOK) {
+            Map<String, Object> fbInfo = verifyFacebookToken(request.getToken());
+            email = (String) fbInfo.get("email");
+            name = (String) fbInfo.get("name");
+            Map<String, Object> pictureObj = (Map<String, Object>) fbInfo.get("picture");
+            Map<String, Object> dataObj = (Map<String, Object>) pictureObj.get("data");
+            avatarUrl = (String) dataObj.get("url");
+            providerId = (String) fbInfo.get("id");
+        } else {
+            throw new AppException("Provider không được hỗ trợ");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException("Không tìm thấy tài khoản với email này để liên kết."));
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new AppException("Old password not match. Can not link account.");
+        }
+
+        user.setProvider(request.getProvider());
+        user.setProviderId(providerId);
+        user.setAvatarUrl(avatarUrl);
+        userRepository.save(user);
+
+        var userDetails = customUserDetailsService.loadUserByUsername(user.getEmail());
+        var accessToken = jwtService.generateAccessToken(userDetails);
+        var refreshToken = jwtService.generateRefreshToken(userDetails);
+
+        saveUserRefreshToken(user, refreshToken);
+
+        return AuthResponse.builder()
+                .message("Link account successfully! Now you can sign in " + request.getProvider())
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
     private void sendVerificationOtp(User user) {
         String otp = String.valueOf(secureRandom.nextInt(900000) + 100000);
 
@@ -301,8 +349,12 @@ public class AuthServiceImpl implements AuthService {
 
         if (userOptional.isPresent()) {
             User existingUser = userOptional.get();
+            if (!existingUser.getProvider().equals(provider)) {
+                throw new AppException("This email has been register by " + existingUser.getProvider() +
+                        ". Please enter old password to link account.");
+            }
             existingUser.setAvatarUrl(avatarUrl);
-            existingUser.setProvider(provider);
+//            existingUser.setProvider(provider);
             existingUser.setProviderId(providerId);
             return userRepository.save(existingUser);
         } else {

@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @Repository
 public interface PlaylistRepository extends JpaRepository<Playlist, UUID> {
-    @EntityGraph(attributePaths = {"playlistSongs", "playlistSongs.song", "playlistSongs.song.artist"})
+    @EntityGraph(attributePaths = {"playlistSongs", "playlistSongs.song", "playlistSongs.song.artist", "user"})
     Optional<Playlist> findBySlug(String slug);
     List<Playlist> findByUserId(UUID userId);
     boolean existsBySlug(String slug);

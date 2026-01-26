@@ -14,6 +14,7 @@ import org.springframework.util.FileSystemUtils;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -37,6 +38,11 @@ public class TranscodeWorker {
         String songIdStr = redisTemplate.opsForList().rightPop(QUEUE_KEY);
         if (songIdStr == null) return;
 
+        String lockKey = "LOCK:TRANSCODE_WORKER";
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofSeconds(4));
+        if (Boolean.FALSE.equals(acquired)) {
+            return;
+        }
         log.info(">>> [WORKER] Bắt đầu Transcode bài hát ID: {}", songIdStr);
 
         File tempInDir = null;

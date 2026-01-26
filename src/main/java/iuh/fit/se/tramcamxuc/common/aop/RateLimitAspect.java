@@ -9,6 +9,8 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.data.redis.core.StringRedisTemplate; // Dùng String cho nhẹ
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -27,8 +29,14 @@ public class RateLimitAspect {
     public Object handleRateLimit(ProceedingJoinPoint joinPoint, RateLimit rateLimit) throws Throwable {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
         String ipAddress = getClientIp(request);
+        String userId = "anonymous";
 
-        String key = "RATE_LIMIT:" + rateLimit.key() + ":" + ipAddress;
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+            userId = auth.getName();
+        }
+
+        String key = "RATE_LIMIT:" + rateLimit.key() + ":" + userId + ":" + ipAddress;
 
         Long currentCount = redisTemplate.opsForValue().increment(key);
 
