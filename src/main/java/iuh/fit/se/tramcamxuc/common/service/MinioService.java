@@ -1,19 +1,14 @@
 package iuh.fit.se.tramcamxuc.common.service;
 
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.RemoveObjectArgs;
+import io.minio.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -33,7 +28,7 @@ public class MinioService {
     public CompletableFuture<String> uploadMusicFileAsync(File file, String contentType, String originalFilename) {
         return CompletableFuture.supplyAsync(() -> {
             try (FileInputStream inputStream = new FileInputStream(file)) {
-                String fileName = UUID.randomUUID().toString() + "_" + originalFilename.replaceAll("\\s+", "_");
+                String fileName = java.util.UUID.randomUUID() + "_" + originalFilename.replaceAll("\\s+", "_");
 
                 minioClient.putObject(
                         PutObjectArgs.builder()
@@ -53,8 +48,7 @@ public class MinioService {
                 throw new RuntimeException("Upload failed");
             } finally {
                 if (file != null && file.exists()) {
-                    boolean deleted = file.delete();
-                    if (!deleted) log.warn("Không thể xóa file tạm: {}", file.getAbsolutePath());
+                    file.delete();
                 }
             }
         });
@@ -63,19 +57,94 @@ public class MinioService {
     @Async
     public void deleteFileAsync(String fileUrl) {
         if (fileUrl == null || fileUrl.isEmpty()) return;
-
         try {
-            String fileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
-
+            String fileName = extractObjectNameFromUrl(fileUrl);
             minioClient.removeObject(
                     RemoveObjectArgs.builder()
                             .bucket(bucketName)
                             .object(fileName)
                             .build()
             );
-            log.info("Đã xóa file nhạc trên MinIO: {}", fileName);
+            log.info("Đã xóa file MinIO: {}", fileName);
         } catch (Exception e) {
-            log.error("Lỗi xóa file MinIO (url={}): {}", fileUrl, e.getMessage());
+            log.error("Lỗi xóa file MinIO: {}", e.getMessage());
         }
+    }
+
+    //  Worker HLS Streaming
+
+    public File downloadFile(String fileUrl, File destDir) {
+        try {
+            String objectName = extractObjectNameFromUrl(fileUrl);
+            File destFile = new File(destDir, objectName);
+
+            log.info("Đang tải file từ MinIO: {} -> {}", objectName, destFile.getAbsolutePath());
+
+            minioClient.downloadObject(
+                    DownloadObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(objectName)
+                            .filename(destFile.getAbsolutePath())
+                            .build()
+            );
+
+            return destFile;
+        } catch (Exception e) {
+            log.error("Lỗi download file từ MinIO: {}", e.getMessage());
+            throw new RuntimeException("Không thể tải file gốc về để xử lý: " + e.getMessage());
+        }
+    }
+
+    public String uploadLocalFile(File file, String objectName, String contentType) {
+        try {
+            minioClient.uploadObject(
+                    UploadObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(objectName)
+                            .filename(file.getAbsolutePath())
+                            .contentType(contentType)
+                            .build()
+            );
+
+            return String.format("%s/%s/%s", minioUrl, bucketName, objectName);
+        } catch (Exception e) {
+            log.error("Lỗi upload file local lên MinIO: {}", e.getMessage());
+            throw new RuntimeException("Upload file HLS thất bại");
+        }
+    }
+
+    public String uploadFolder(File folder, String remotePrefix) {
+        File[] files = folder.listFiles();
+        if (files == null) return null;
+
+        String m3u8Url = null;
+
+        for (File file : files) {
+            if (file.isDirectory()) continue;
+
+            String objectName = remotePrefix + "/" + file.getName();
+            String contentType = "application/octet-stream";
+
+            if (file.getName().endsWith(".m3u8")) {
+                contentType = "application/x-mpegURL";
+            } else if (file.getName().endsWith(".ts")) {
+                contentType = "video/MP2T";
+            }
+
+            String url = uploadLocalFile(file, objectName, contentType);
+
+            if (file.getName().endsWith(".m3u8")) {
+                m3u8Url = url;
+            }
+        }
+        return m3u8Url;
+    }
+
+    private String extractObjectNameFromUrl(String url) {
+        String prefix = minioUrl + "/" + bucketName + "/";
+        if (url.startsWith(prefix)) {
+            return url.substring(prefix.length());
+        }
+        return url.substring(url.lastIndexOf("/") + 1);
     }
 }
