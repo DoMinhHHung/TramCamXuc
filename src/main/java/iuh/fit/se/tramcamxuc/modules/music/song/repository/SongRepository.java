@@ -27,9 +27,17 @@ public interface SongRepository extends JpaRepository<Song, UUID> {
     @Query("UPDATE Song s SET s.listeningCount = s.listeningCount + :count WHERE s.id = :id")
     void incrementListeningCount(UUID id, Long count);
 
-    @Query("SELECT s FROM Song s " +
-            "LEFT JOIN FETCH s.artist " +
-            "WHERE LOWER(s.title) LIKE LOWER(CONCAT(:keyword, '%')) " +
-            "OR LOWER(s.artist.name) LIKE LOWER(CONCAT(:keyword, '%'))")
+    @Query(value = """
+                SELECT s.* FROM songs s
+                LEFT JOIN artists a ON s.artist_id = a.id
+                WHERE unaccent(s.title) ILIKE unaccent(concat('%', :keyword, '%'))
+                OR unaccent(a.name) ILIKE unaccent(concat('%', :keyword, '%'))
+                ORDER BY s.listening_count DESC
+            """, nativeQuery = true)
     List<Song> searchByKeyword(@Param("keyword") String keyword);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Song s SET s.likeCount = :count WHERE s.id = :id")
+    void updateLikeCount(UUID id, Long count);
 }

@@ -60,7 +60,6 @@ public class AlbumServiceImpl {
         Album album = albumRepository.findById(albumId)
                 .orElseThrow(() -> new ResourceNotFoundException("Album not exist."));
 
-        // CHECK QUYỀN: Album này có phải của ông Artist này không?
         if (!album.getArtist().getId().equals(artist.getId())) {
             throw new AppException("You don't have permission to modify this album!");
         }
@@ -70,9 +69,10 @@ public class AlbumServiceImpl {
         // Update logic
         for (Song song : songs) {
             if (song.getArtist().getId().equals(artist.getId())) {
-                song.setAlbum(album);
-                album.setTotalDuration(album.getTotalDuration() + song.getDuration());
+                throw new AppException("The song '" + song.getTitle() + "' not owned by you!");
             }
+            song.setAlbum(album);
+            album.setTotalDuration(album.getTotalDuration() + song.getDuration());
         }
 
         songRepository.saveAll(songs);

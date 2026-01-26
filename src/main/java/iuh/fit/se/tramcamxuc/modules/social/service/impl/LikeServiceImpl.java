@@ -30,16 +30,21 @@ public class LikeServiceImpl implements LikeService {
         String userKey = USER_LIKES_KEY + userId;
 
         Boolean isLiked = redisTemplate.opsForSet().isMember(songKey, userId);
+        boolean result;
 
         if (Boolean.TRUE.equals(isLiked)) {
             redisTemplate.opsForSet().remove(songKey, userId);
             redisTemplate.opsForSet().remove(userKey, sId);
-            return false;
+            result = false;
         } else {
             redisTemplate.opsForSet().add(songKey, userId);
             redisTemplate.opsForSet().add(userKey, sId);
-            return true;
+            result = true;
         }
+
+        redisTemplate.opsForSet().add("song:likes:dirty", sId);
+
+        return result;
     }
 
     @Override
