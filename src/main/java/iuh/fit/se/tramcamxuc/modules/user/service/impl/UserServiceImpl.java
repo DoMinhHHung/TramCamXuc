@@ -17,9 +17,13 @@ import iuh.fit.se.tramcamxuc.modules.user.dto.request.UpdateProfileRequest;
 import iuh.fit.se.tramcamxuc.modules.user.dto.response.PublicProfileResponse;
 import iuh.fit.se.tramcamxuc.modules.user.dto.response.UserProfileResponse;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
+import iuh.fit.se.tramcamxuc.modules.user.entity.enums.Role;
+import iuh.fit.se.tramcamxuc.modules.user.entity.enums.UserStatus;
 import iuh.fit.se.tramcamxuc.modules.user.repository.UserRepository;
 import iuh.fit.se.tramcamxuc.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -176,5 +180,25 @@ public class UserServiceImpl implements UserService {
                         .map(PlaylistResponse::fromEntity)
                         .toList())
                 .build();
+    }
+
+    @Override
+    public Page<UserProfileResponse> getAllUsers(String keyword, Role role, Pageable pageable) {
+        return userRepository.searchUsers(keyword, role, pageable)
+                .map(UserProfileResponse::fromEntity);
+    }
+
+    @Override
+    @Transactional
+    public void toggleUserStatus(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (user.getIsActive() == UserStatus.BANNED) {
+            user.setIsActive(UserStatus.ACTIVE);
+        } else {
+            user.setIsActive(UserStatus.BANNED);
+        }
+
+        userRepository.save(user);
     }
 }
