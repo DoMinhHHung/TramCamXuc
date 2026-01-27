@@ -18,7 +18,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.payos.PayOS;
-import vn.payos.type.*;
+import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
+import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
+import vn.payos.model.v2.paymentRequests.PaymentLinkItem;
+import vn.payos.model.webhooks.*;
 
 import java.util.Date;
 import java.util.UUID;
@@ -42,34 +45,38 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public CheckoutResponseData createPaymentLink(UUID planId) {
+    public CreatePaymentLinkResponse createPaymentLink(UUID planId) {
         User user = userService.getCurrentUser();
         SubscriptionPlan plan = planRepo.findById(planId)
-                .orElseThrow(() -> new ResourceNotFoundException("Gói cước không tồn tại"));
+                .orElseThrow(() -> new ResourceNotFoundException("Plan not found"));
 
         long orderCode = Long.parseLong(String.valueOf(System.currentTimeMillis()).substring(3));
-
         String desc = "Mua " + plan.getName();
         if (desc.length() > 25) desc = desc.substring(0, 25);
 
-        ItemData item = ItemData.builder()
+        // 1. Tạo Item theo chuẩn V2
+        PaymentLinkItem item = PaymentLinkItem.builder()
                 .name(plan.getName())
+                .price((long) plan.getPrice().intValue())
                 .quantity(1)
-                .price(plan.getPrice().intValue())
                 .build();
 
-        PaymentData paymentData = PaymentData.builder()
+        // 2. Tạo Request theo chuẩn V2
+        // Demo dùng: CreatePaymentLinkRequest.builder()...item(item)...build()
+        CreatePaymentLinkRequest request = CreatePaymentLinkRequest.builder()
                 .orderCode(orderCode)
-                .amount(plan.getPrice().intValue())
+                .amount((long) plan.getPrice().intValue())
                 .description(desc)
                 .returnUrl(returnUrl)
                 .cancelUrl(cancelUrl)
-                .item(item)
+                .item(item) // SDK v2 có hàm .item() tiện hơn list
                 .build();
 
         try {
-            CheckoutResponseData data = payOS.createPaymentLink(paymentData);
+            // 3. Gọi SDK theo chuẩn V2: payOS.paymentRequests().create()
+            CreatePaymentLinkResponse response = payOS.paymentRequests().create(request);
 
+            // Lưu DB (Giữ nguyên logic cũ của mày)
             PaymentTransaction trans = PaymentTransaction.builder()
                     .orderCode(orderCode)
                     .amount(plan.getPrice())
@@ -80,13 +87,13 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
             transactionRepo.save(trans);
 
-            return data;
+            return response;
 
         } catch (Exception e) {
-            throw new AppException("Lỗi tạo link thanh toán: " + e.getMessage());
+            log.error("PayOS Error: ", e);
+            throw new AppException("Lỗi PayOS: " + e.getMessage());
         }
     }
-
     @Override
     @Transactional
     public WebhookData handleWebhook(PayOSWebhookDTO dto) {
@@ -106,7 +113,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
 
             // 3. Verify Signature
-            WebhookData verifiedData = payOS.verifyPaymentWebhookData(webhook);
+            WebhookData verifiedData = payOS.webhooks().verify(webhook);
 
             // 4. Xử lý nghiệp vụ
             PaymentTransaction trans = transactionRepo.findByOrderCode(verifiedData.getOrderCode())
@@ -130,7 +137,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         } catch (Exception e) {
             log.error("Webhook Error: ", e);
-            return null; // Trả null để Controller return 200 OK
+            return null;
         }
     }
 }

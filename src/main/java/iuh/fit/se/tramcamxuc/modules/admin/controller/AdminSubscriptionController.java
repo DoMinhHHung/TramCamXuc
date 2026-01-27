@@ -1,4 +1,4 @@
-package iuh.fit.se.tramcamxuc.modules.subscription.controller;
+package iuh.fit.se.tramcamxuc.modules.admin.controller;
 
 import iuh.fit.se.tramcamxuc.common.exception.dto.ApiResponse;
 import iuh.fit.se.tramcamxuc.modules.subscription.dto.request.CreatePlanRequest;

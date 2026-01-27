@@ -1,14 +1,12 @@
 package iuh.fit.se.tramcamxuc.modules.payment.service;
 
 import iuh.fit.se.tramcamxuc.modules.payment.dto.PayOSWebhookDTO;
-import vn.payos.type.CheckoutResponseData;
-import vn.payos.type.Webhook;
-import vn.payos.type.WebhookData;
-
+import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
+import vn.payos.model.webhooks.WebhookData;
 import java.util.UUID;
 
 public interface PaymentService {
-    CheckoutResponseData createPaymentLink(UUID planId);
+    CreatePaymentLinkResponse createPaymentLink(UUID planId);
 
-    WebhookData handleWebhook(PayOSWebhookDTO dto);
+    WebhookData handleWebhook(PayOSWebhookDTO webhookBody);
 }

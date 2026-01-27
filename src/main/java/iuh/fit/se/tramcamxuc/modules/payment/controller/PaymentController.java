@@ -6,7 +6,9 @@ import iuh.fit.se.tramcamxuc.modules.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import vn.payos.type.CheckoutResponseData;
+
+// >>> SỬA IMPORT: Dùng class Response mới của V2 <<<
+import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
 
 import java.util.UUID;
 
@@ -18,11 +20,11 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping("/create-link/{planId}")
-    public ResponseEntity<ApiResponse<CheckoutResponseData>> createLink(@PathVariable UUID planId) {
+    public ResponseEntity<ApiResponse<CreatePaymentLinkResponse>> createLink(@PathVariable UUID planId) {
         return ResponseEntity.ok(ApiResponse.success(paymentService.createPaymentLink(planId)));
     }
 
-    // Webhook nhận DTO
+    // Webhook giữ nguyên
     @PostMapping("/webhook")
     public ResponseEntity<ApiResponse<String>> webhook(@RequestBody PayOSWebhookDTO webhookBody) {
         paymentService.handleWebhook(webhookBody);
