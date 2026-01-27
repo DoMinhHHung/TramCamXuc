@@ -2,10 +2,13 @@ package iuh.fit.se.tramcamxuc.modules.admin.service.impl;
 
 import iuh.fit.se.tramcamxuc.modules.admin.dto.ChartData;
 import iuh.fit.se.tramcamxuc.modules.admin.dto.DashboardStats;
+import iuh.fit.se.tramcamxuc.modules.admin.dto.RevenueByPlanDTO;
+import iuh.fit.se.tramcamxuc.modules.admin.dto.RevenueStatsResponse;
 import iuh.fit.se.tramcamxuc.modules.admin.service.AdminStatsService;
 import iuh.fit.se.tramcamxuc.modules.music.artist.repository.ArtistRepository;
 import iuh.fit.se.tramcamxuc.modules.music.genre.repository.GenreRepository;
 import iuh.fit.se.tramcamxuc.modules.music.song.repository.SongRepository;
+import iuh.fit.se.tramcamxuc.modules.payment.repository.PaymentTransactionRepository;
 import iuh.fit.se.tramcamxuc.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -31,6 +34,7 @@ public class AdminStatsServiceImpl implements AdminStatsService {
     private final ArtistRepository artistRepository;
     private final MongoTemplate mongoTemplate;
     private final GenreRepository genreRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Override
     public DashboardStats getOverview() {
@@ -76,5 +80,18 @@ public class AdminStatsServiceImpl implements AdminStatsService {
     @Override
     public List<ChartData> getGenreDistribution() {
         return genreRepository.getGenreSongCount();
+    }
+
+    @Override
+    public RevenueStatsResponse getRevenueStats() {
+        Double total = paymentTransactionRepository.sumTotalRevenue();
+        if (total == null) total = 0.0;
+
+        List<RevenueByPlanDTO> byPlan = paymentTransactionRepository.getRevenueByPlan();
+
+        return RevenueStatsResponse.builder()
+                .totalRevenue(total)
+                .revenueByPlan(byPlan)
+                .build();
     }
 }
