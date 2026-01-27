@@ -26,4 +26,6 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
             "AND (s.endDate IS NULL OR s.endDate >= CURRENT_TIMESTAMP) " +
             "AND s.plan.price > 0")
     boolean isPremiumUser(@Param("userId") UUID userId);
+
+    Optional<UserSubscription> findByUserId(UUID userId);
 }

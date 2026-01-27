@@ -5,7 +5,6 @@ import iuh.fit.se.tramcamxuc.modules.subscription.entity.SubscriptionPlan;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.util.Date;
 
 @Entity
