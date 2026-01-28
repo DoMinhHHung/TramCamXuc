@@ -16,6 +16,7 @@ import iuh.fit.se.tramcamxuc.modules.music.song.entity.Song;
 import iuh.fit.se.tramcamxuc.modules.music.song.entity.enums.SongStatus;
 import iuh.fit.se.tramcamxuc.modules.music.song.repository.SongRepository;
 import iuh.fit.se.tramcamxuc.modules.music.song.service.SongService;
+import iuh.fit.se.tramcamxuc.modules.subscription.repository.UserSubscriptionRepository;
 import iuh.fit.se.tramcamxuc.modules.user.entity.User;
 import iuh.fit.se.tramcamxuc.modules.user.repository.UserRepository;
 import iuh.fit.se.tramcamxuc.modules.user.service.UserService;
@@ -55,6 +56,7 @@ public class SongServiceImpl implements SongService {
     private final ArtistRepository artistRepository;
     private final GenreRepository genreRepository;
     private final StringRedisTemplate redisTemplate;
+    private final UserSubscriptionRepository userSubRepo;
 
     private static final String SONG_VIEW_COUNT_KEY = "song:view:buffer";
 
@@ -65,6 +67,22 @@ public class SongServiceImpl implements SongService {
 
         Artist artist = artistRepository.findByUserId(currentUser.getId())
                 .orElseThrow(() -> new AppException("You must be registered as an artist to upload songs."));
+
+        var activeSub = userSubRepo.findActiveSubscriptionByUserId(currentUser.getId())
+                .orElseThrow(() -> new AppException("You need an active subscription to upload songs."));
+
+        Map<String, Object> features = activeSub.getPlan().getFeatures();
+
+        int maxUploads = 0;
+        Object maxObj = features.get("max_uploads");
+        if (maxObj instanceof Integer) maxUploads = (Integer) maxObj;
+        else if (maxObj instanceof String) maxUploads = Integer.parseInt((String) maxObj);
+
+        long currentCount = songRepository.countByArtistId(artist.getId());
+
+        if (currentCount >= maxUploads) {
+            throw new AppException("Đạt giới hạn upload (" + maxUploads + " bài). Hãy nâng cấp gói Pro!");
+        }
 
         if(request.getAudioFile() == null || request.getAudioFile().isEmpty()) {
             throw new AppException("Audio file is required.");

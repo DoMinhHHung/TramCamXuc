@@ -53,4 +53,6 @@ public interface SongRepository extends JpaRepository<Song, UUID> {
 
     @Query("SELECT COALESCE(SUM(s.listeningCount), 0) FROM Song s")
     Long getTotalListeningCount();
+
+    long countByArtistId(UUID artistId);
 }
