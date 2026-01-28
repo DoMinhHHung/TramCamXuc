@@ -14,7 +14,11 @@ import java.util.Set;
 @Entity
 @Table(name = "songs", indexes = {
         @Index(name = "idx_song_slug", columnList = "slug"),
-        @Index(name = "idx_song_title", columnList = "title")
+        @Index(name = "idx_song_title", columnList = "title"),
+        @Index(name = "idx_song_status", columnList = "status"),
+        @Index(name = "idx_song_artist", columnList = "artist_id"),
+        @Index(name = "idx_song_created", columnList = "created_at"),
+        @Index(name = "idx_song_listening", columnList = "listening_count")
 })
 @Getter
 @Setter

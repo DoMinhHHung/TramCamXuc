@@ -20,6 +20,11 @@ import java.util.UUID;
 public interface SongRepository extends JpaRepository<Song, UUID> {
     @EntityGraph(attributePaths = {"artist", "genres", "album"})
     Optional<Song> findBySlug(String slug);
+    
+    @EntityGraph(attributePaths = {"artist"})
+    @Query("SELECT s FROM Song s WHERE s.id = :id")
+    Optional<Song> findByIdWithArtist(@Param("id") UUID id);
+    
     boolean existsBySlug(String slug);
 
     @EntityGraph(attributePaths = {"artist", "genres", "album"})
@@ -28,7 +33,13 @@ public interface SongRepository extends JpaRepository<Song, UUID> {
     @Modifying
     @Transactional
     @Query("UPDATE Song s SET s.listeningCount = s.listeningCount + :count WHERE s.id = :id")
-    void incrementListeningCount(UUID id, Long count);
+    void incrementListeningCount(@Param("id") UUID id, @Param("count") Long count);
+    
+    @Modifying
+    @Transactional
+    default void batchIncrementListeningCount(java.util.Map<UUID, Long> songViewMap) {
+        songViewMap.forEach(this::incrementListeningCount);
+    }
 
     @Query(value = """
                 SELECT s.* FROM songs s

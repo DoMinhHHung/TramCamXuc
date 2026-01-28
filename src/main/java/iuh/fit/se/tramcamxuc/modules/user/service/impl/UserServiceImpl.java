@@ -22,6 +22,8 @@ import iuh.fit.se.tramcamxuc.modules.user.entity.enums.UserStatus;
 import iuh.fit.se.tramcamxuc.modules.user.repository.UserRepository;
 import iuh.fit.se.tramcamxuc.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -72,6 +74,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @CacheEvict(value = "userProfiles", key = "#result.id")
     public UserProfileResponse updateProfile(UpdateProfileRequest request) {
         User user = getCurrentUser();
 

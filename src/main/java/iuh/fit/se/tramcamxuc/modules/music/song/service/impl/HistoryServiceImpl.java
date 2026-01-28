@@ -31,7 +31,7 @@ public class HistoryServiceImpl implements HistoryService {
     public void logHistory(LogHistoryRequest request) {
         User currentUser = userService.getCurrentUser();
 
-        Song song = songRepository.findById(request.getSongId())
+        Song song = songRepository.findByIdWithArtist(request.getSongId())
                 .orElseThrow(() -> new ResourceNotFoundException("Song not found"));
 
         ListeningHistory history = ListeningHistory.builder()
