@@ -4,6 +4,8 @@ import iuh.fit.se.tramcamxuc.modules.admin.dto.ChartData;
 import iuh.fit.se.tramcamxuc.modules.admin.dto.DashboardStats;
 import iuh.fit.se.tramcamxuc.modules.admin.dto.RevenueByPlanDTO;
 import iuh.fit.se.tramcamxuc.modules.admin.dto.RevenueStatsResponse;
+import iuh.fit.se.tramcamxuc.modules.admin.dto.projection.ChartDataProjection;
+import iuh.fit.se.tramcamxuc.modules.admin.dto.projection.RevenueByPlanProjection;
 import iuh.fit.se.tramcamxuc.modules.admin.service.AdminStatsService;
 import iuh.fit.se.tramcamxuc.modules.music.artist.repository.ArtistRepository;
 import iuh.fit.se.tramcamxuc.modules.music.genre.repository.GenreRepository;
@@ -79,7 +81,11 @@ public class AdminStatsServiceImpl implements AdminStatsService {
 
     @Override
     public List<ChartData> getGenreDistribution() {
-        return genreRepository.getGenreSongCount();
+        List<ChartDataProjection> projections = genreRepository.getSongCountByGenre();
+
+        return projections.stream()
+                .map(p -> new ChartData(p.getLabel(), p.getValue()))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -87,7 +93,15 @@ public class AdminStatsServiceImpl implements AdminStatsService {
         Double total = paymentTransactionRepository.sumTotalRevenue();
         if (total == null) total = 0.0;
 
-        List<RevenueByPlanDTO> byPlan = paymentTransactionRepository.getRevenueByPlan();
+        List<RevenueByPlanProjection> projections = paymentTransactionRepository.getRevenueByPlan();
+
+        List<RevenueByPlanDTO> byPlan = projections.stream()
+                .map(p -> new RevenueByPlanDTO(
+                        p.getPlanName(),
+                        p.getTotalAmount(),
+                        p.getTransactionCount())
+                )
+                .collect(Collectors.toList());
 
         return RevenueStatsResponse.builder()
                 .totalRevenue(total)

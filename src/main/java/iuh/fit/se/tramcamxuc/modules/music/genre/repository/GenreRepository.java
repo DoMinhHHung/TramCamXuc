@@ -1,6 +1,7 @@
 package iuh.fit.se.tramcamxuc.modules.music.genre.repository;
 
 import iuh.fit.se.tramcamxuc.modules.admin.dto.ChartData;
+import iuh.fit.se.tramcamxuc.modules.admin.dto.projection.ChartDataProjection;
 import iuh.fit.se.tramcamxuc.modules.music.genre.entity.Genre;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -19,9 +20,8 @@ public interface GenreRepository extends JpaRepository<Genre, UUID> {
     @Query("SELECT COUNT(s) > 0 FROM Song s JOIN s.genres g WHERE g.id = :genreId")
     boolean hasSongs(UUID genreId);
 
-    @Query("SELECT new iuh.fit.se.tramcamxuc.modules.admin.dto.ChartData(g.name, COUNT(s)) " +
-            "FROM Song s " +
-            "JOIN s.genres g " +
+    @Query("SELECT g.name as label, COUNT(DISTINCT s.id) as value " +
+            "FROM Genre g LEFT JOIN Song s ON g MEMBER OF s.genres " +
             "GROUP BY g.id, g.name")
-    List<ChartData> getGenreSongCount();
+    List<ChartDataProjection> getSongCountByGenre();
 }

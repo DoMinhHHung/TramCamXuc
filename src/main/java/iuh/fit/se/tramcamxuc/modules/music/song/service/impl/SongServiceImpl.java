@@ -26,6 +26,8 @@ import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.mp4parser.IsoFile;
 import org.mp4parser.boxes.iso14496.part12.MovieHeaderBox;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -137,6 +139,7 @@ public class SongServiceImpl implements SongService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "songs", key = "#result.slug")
     public SongResponse updateSong(UUID songId, UpdateSongRequest request) {
         Song song = songRepository.findById(songId)
                 .orElseThrow(() -> new AppException("The song does not exist"));
@@ -257,6 +260,7 @@ public class SongServiceImpl implements SongService {
     }
 
     @Override
+    @Cacheable(value = "songs", key = "#slug", unless = "#result == null")
     public SongResponse getSongBySlug(String slug) {
         Song song = songRepository.findBySlug(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("This song does not exist"));

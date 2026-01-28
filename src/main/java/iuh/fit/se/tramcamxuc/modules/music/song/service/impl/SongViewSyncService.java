@@ -8,9 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -31,19 +29,26 @@ public class SongViewSyncService {
 
         log.info("Bắt đầu đồng bộ {} bài hát từ Redis về DB...", viewsMap.size());
 
+        Map<UUID, Long> songViewMap = new HashMap<>();
+        List<String> keysToDelete = new ArrayList<>();
+
         for (Map.Entry<Object, Object> entry : viewsMap.entrySet()) {
             try {
                 String songIdStr = (String) entry.getKey();
                 Long viewCount = Long.parseLong(entry.getValue().toString());
-
-                songRepository.incrementListeningCount(UUID.fromString(songIdStr), viewCount);
-
-                redisTemplate.opsForHash().delete(SONG_VIEW_COUNT_KEY, songIdStr);
-
+                UUID songId = UUID.fromString(songIdStr);
+                
+                songViewMap.put(songId, viewCount);
+                keysToDelete.add(songIdStr);
             } catch (Exception e) {
-                log.error("Lỗi sync view cho song {}: {}", entry.getKey(), e.getMessage());
+                log.error("Lỗi parsing data cho song {}: {}", entry.getKey(), e.getMessage());
             }
         }
-        log.info("Đồng bộ hoàn tất.");
+
+        if (!songViewMap.isEmpty()) {
+            songRepository.batchIncrementListeningCount(songViewMap);
+            keysToDelete.forEach(key -> redisTemplate.opsForHash().delete(SONG_VIEW_COUNT_KEY, key));
+            log.info("Đồng bộ {} bài hát hoàn tất.", songViewMap.size());
+        }
     }
 }

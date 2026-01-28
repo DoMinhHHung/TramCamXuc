@@ -1,4 +1,7 @@
 package iuh.fit.se.tramcamxuc.modules.admin.dto.projection;
 
-public class RevenueByPlanProjection {
+public interface RevenueByPlanProjection {
+    String getPlanName();
+    Double getTotalAmount();
+    Long getTransactionCount();
 }
