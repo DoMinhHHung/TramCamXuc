@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -20,17 +21,20 @@ public class AdDecisionService {
     private static final int SONG_LIMIT = 5;
     private static final long TIME_LIMIT_MS = 30 * 60 * 1000;
 
-
     public boolean shouldPlayAd() {
         User currentUser = userService.getCurrentUser();
         UUID userId = currentUser.getId();
 
+        var activeSub = userSubscriptionRepository.findActiveSubscriptionByUserId(userId);
 
-        boolean isPremium = userSubscriptionRepository.isPremiumUser(userId);
-        if (isPremium) {
-            return false;
+        if (activeSub.isPresent()) {
+            Map<String, Object> features = activeSub.get().getPlan().getFeatures();
+            boolean isNoAds = (boolean) features.getOrDefault("no_ads", false);
+
+            if (isNoAds) {
+                return false;
+            }
         }
-
         String countKey = "ads:counter:" + userId;
         String timeKey = "ads:last_time:" + userId;
 
@@ -66,12 +70,11 @@ public class AdDecisionService {
         String timeKey = "ads:last_time:" + userId;
 
         redisTemplate.delete(countKey);
-
         redisTemplate.opsForValue().set(timeKey, String.valueOf(System.currentTimeMillis()));
     }
 
     private void resetAdTimer(UUID userId) {
         String timeKey = "ads:last_time:" + userId;
-        redisTemplate.opsForValue().setIfAbsent(timeKey, String.valueOf(System.currentTimeMillis()));
+        redisTemplate.opsForValue().set(timeKey, String.valueOf(System.currentTimeMillis()));
     }
 }

@@ -23,5 +23,6 @@ public class CreatePlanRequest {
     @Min(value = 0, message = "Thời hạn không hợp lệ")
     private Integer durationDays;
 
+    @NotNull(message = "Features cannot be null")
     private Map<String, Object> features;
 }

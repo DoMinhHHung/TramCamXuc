@@ -1,6 +1,8 @@
 package iuh.fit.se.tramcamxuc.common.service;
 
 import io.minio.*;
+import io.minio.http.Method;
+import iuh.fit.se.tramcamxuc.common.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,8 +11,10 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -145,19 +149,34 @@ public class MinioService {
     }
 
     private String extractObjectNameFromUrl(String url) {
-        // Trường hợp 1: URL Public
         String publicPrefix = publicUrl + "/" + bucketName + "/";
         if (url.startsWith(publicPrefix)) {
             return url.substring(publicPrefix.length());
         }
 
-        // Trường hợp 2: URL Nội bộ (cho các file cũ nếu có)
         String internalPrefix = internalEndpoint + "/" + bucketName + "/";
         if (url.startsWith(internalPrefix)) {
             return url.substring(internalPrefix.length());
         }
 
-        // Fallback: Lấy phần cuối cùng sau dấu /
         return url.substring(url.lastIndexOf("/") + 1);
+    }
+
+    public String getPresignedDownloadUrl(String objectName, int expirySeconds) {
+        try {
+            String name = objectName.substring(objectName.lastIndexOf("/") + 1);
+
+            return minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.GET)
+                            .bucket(bucketName)
+                            .object(name)
+                            .expiry(expirySeconds, TimeUnit.SECONDS)
+                            .extraQueryParams(Map.of("response-content-disposition", "attachment; filename=\"" + name + "\""))
+                            .build()
+            );
+        } catch (Exception e) {
+            throw new AppException("Lỗi MinIO: " + e.getMessage());
+        }
     }
 }

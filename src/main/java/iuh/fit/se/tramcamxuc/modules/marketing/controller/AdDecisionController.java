@@ -19,7 +19,6 @@ public class AdDecisionController {
     private final AdDecisionService adDecisionService;
     private final AdvertisementService advertisementService;
 
-    // Client gọi API này TRƯỚC khi play bài hát
     @GetMapping("/status")
     public ResponseEntity<ApiResponse<Map<String, Object>>> checkAdStatus() {
         boolean mustWatchAd = adDecisionService.shouldPlayAd();
@@ -27,7 +26,6 @@ public class AdDecisionController {
         response.put("mustWatchAd", mustWatchAd);
 
         if (mustWatchAd) {
-            // Nếu phải xem, trả về luôn link quảng cáo để Client play
             Advertisement ad = advertisementService.getRandomAudioAd();
             response.put("adData", ad);
         }
@@ -35,14 +33,12 @@ public class AdDecisionController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    // Client gọi API này sau khi play xong bài nhạc (để tăng counter)
     @PostMapping("/song-finished")
     public ResponseEntity<ApiResponse<String>> onSongFinished() {
         adDecisionService.incrementSongCount();
         return ResponseEntity.ok(ApiResponse.success("Counted"));
     }
 
-    // Client gọi API này sau khi QUẢNG CÁO chạy xong (để reset counter)
     @PostMapping("/ad-finished")
     public ResponseEntity<ApiResponse<String>> onAdFinished() {
         adDecisionService.resetAfterAdPlayed();
