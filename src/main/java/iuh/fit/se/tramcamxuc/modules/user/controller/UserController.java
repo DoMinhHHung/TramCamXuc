@@ -39,6 +39,12 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("OTP đã được gửi đến email của bạn."));
     }
 
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<String>> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePasswordWithOtp(request);
+        return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu thành công"));
+    }
+
     @PostMapping(value = "/avatar", consumes = "multipart/form-data")
     public CompletableFuture<ResponseEntity<ApiResponse<String>>> uploadAvatar(@RequestParam("file") MultipartFile file) {
         return userService.uploadAvatar(file)

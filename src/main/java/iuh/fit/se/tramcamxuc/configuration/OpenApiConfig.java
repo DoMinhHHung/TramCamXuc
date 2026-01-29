@@ -15,10 +15,8 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
-                // --- THÊM ĐOẠN NÀY ---
                 .addServersItem(new Server().url("https://phazelsound.oopsgolden.id.vn").description("Production Server"))
                 .addServersItem(new Server().url("http://localhost:8080").description("Local Development"))
-                // ---------------------
                 .info(new Info().title("TramCamXuc API").version("v2.0"))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()
